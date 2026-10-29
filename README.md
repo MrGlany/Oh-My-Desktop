@@ -10,6 +10,7 @@
 ![Qt6](https://img.shields.io/badge/Qt-6-41CD52?style=for-the-badge&logo=qt&logoColor=white)
 ![Hyprland](https://img.shields.io/badge/Hyprland-Wayland-00B9D6?style=for-the-badge&logo=hyprland&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-Desktop-B9A6FF?style=for-the-badge&logo=linux&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-72DCCB?style=for-the-badge)](LICENSE)
 
 <br>
 
@@ -314,7 +315,9 @@ rmdir "$HOME/.local/opt/oh-my-desktop"
 
 Проект основан на **[EduuG/oh-my-desktop](https://github.com/EduuG/oh-my-desktop)** из [Classic Hypr Suite](https://github.com/EduuG/classic-hypr-suite). Эта версия развивает исходный менеджер: оформление, локализацию, файловые операции и работу с несколькими мониторами.
 
-**Статус лицензии: уточняется.** В использованной копии исходного проекта не найден `LICENSE`. Этот README не устанавливает MIT или другую лицензию на код исходного автора. Условия распространения производной версии необходимо согласовать до её публикации.
+Лицензия этой версии указана в файле **[LICENSE](LICENSE) — MIT License**.
+
+MIT разрешает использование, изменение и распространение кода, в том числе в коммерческих проектах, с сохранением уведомления об авторских правах и текста лицензии. Программа предоставляется без гарантий. Авторство исходного проекта указано выше.
 
 ---
 
@@ -323,6 +326,8 @@ rmdir "$HOME/.local/opt/oh-my-desktop"
 **Файлы под рукой. Значки на своих местах.**
 
 Доработки — [MrGlany](https://github.com/MrGlany) · Исходный проект — [EduuG](https://github.com/EduuG)
+
+[Лицензия MIT](LICENSE)
 
 <sub>C++17 · Qt6 · Wayland Layer Shell · Linux</sub>
 
