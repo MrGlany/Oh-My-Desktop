@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="title description">
+  <title id="title">Oh My Desktop — два экрана, одна удобная система</title>
+  <desc id="description">Иллюстрация прозрачного рабочего стола: папки на левом мониторе, ярлыки и меню на правом. Фиолетовое оформление с бирюзовыми акцентами.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#111525"/><stop offset="1" stop-color="#19152d"/></linearGradient>
+    <linearGradient id="screen" x2="1" y2="1"><stop stop-color="#222344"/><stop offset=".55" stop-color="#37305e"/><stop offset="1" stop-color="#192e43"/></linearGradient>
+    <linearGradient id="accent" x2="1"><stop stop-color="#c2b5ff"/><stop offset="1" stop-color="#72dccb"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#7661ca" stop-opacity=".35"/><stop offset="1" stop-color="#7661ca" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#b7a4ff" opacity=".12"/></pattern>
+    <g id="folder"><path d="M0 9a5 5 0 0 1 5-5h15l6 6h25a5 5 0 0 1 5 5v27a5 5 0 0 1-5 5H5a5 5 0 0 1-5-5Z" fill="#9d8ce7"/><path d="M0 17a5 5 0 0 1 5-5h46a5 5 0 0 1 5 5v25a5 5 0 0 1-5 5H5a5 5 0 0 1-5-5Z" fill="#c5b8ff"/><path d="M5 18h46" stroke="#e4dcff" stroke-opacity=".45"/></g>
+    <g id="document"><rect width="36" height="46" rx="5" fill="#e0def1"/><path d="M24 0v12h12" fill="#b5add5"/><path d="M9 23h18M9 30h18M9 37h11" stroke="#81759e" stroke-width="2.5" stroke-linecap="round"/></g>
+  </defs>
+  <rect x="1" y="1" width="1198" height="468" rx="28" fill="url(#bg)" stroke="#36334f"/>
+  <rect x="2" y="2" width="1196" height="466" rx="27" fill="url(#grid)"/>
+  <ellipse cx="655" cy="220" rx="530" ry="260" fill="url(#glow)"/>
+  <g font-family="Inter,DejaVu Sans,Arial,sans-serif">
+    <rect x="38" y="30" width="5" height="40" rx="2.5" fill="url(#accent)"/>
+    <text x="59" y="49" fill="#eeeafa" font-size="20" font-weight="700" letter-spacing="2">OH MY DESKTOP</text>
+    <text x="59" y="70" fill="#a5a0bc" font-size="12">HYPRLAND + NOCTALIA</text>
+    <rect x="973" y="33" width="189" height="32" rx="16" fill="#28253e" stroke="#49405f"/>
+    <circle cx="991" cy="49" r="4" fill="#7cdec0"/>
+    <text x="1003" y="54" fill="#d3cbea" font-size="11">ТВОИ ОБОИ НА МЕСТЕ</text>
+    <!-- Left output -->
+    <rect x="38" y="102" width="542" height="276" rx="14" fill="#0e111d" stroke="#51496c"/>
+    <rect x="46" y="110" width="526" height="260" rx="9" fill="url(#screen)"/>
+    <path d="M46 294 155 209 263 284 374 185 572 321v49H46Z" fill="#585185" opacity=".24"/>
+    <path d="M46 332 191 271 346 342 463 261 572 306v64H46Z" fill="#171c36" opacity=".55"/>
+    <rect x="57" y="121" width="504" height="22" rx="11" fill="#171a2c" opacity=".8"/>
+    <circle cx="71" cy="132" r="3" fill="#bfb2f9"/><circle cx="81" cy="132" r="3" fill="#bfb2f9" opacity=".5"/>
+    <rect x="284" y="127" width="45" height="10" rx="5" fill="#baacf7" opacity=".7"/>
+    <text x="507" y="136" fill="#cdc6e1" font-size="9">Noctalia</text>
+    <use href="#folder" x="78" y="173"/>
+    <text x="106" y="239" fill="#e7e2f6" font-size="11" text-anchor="middle">Проекты</text>
+    <use href="#document" x="88" y="265"/>
+    <text x="106" y="328" fill="#e7e2f6" font-size="11" text-anchor="middle">Заметки.txt</text>
+    <rect x="196" y="182" width="275" height="115" rx="16" fill="#191c31" opacity=".6" stroke="#9e8bdb" stroke-opacity=".25"/>
+    <text x="217" y="213" fill="#e4ddfa" font-size="17" font-weight="600">На своём экране.</text>
+    <text x="217" y="238" fill="#ada6c8" font-size="12">Без дубликатов значков.</text>
+    <text x="217" y="260" fill="#ada6c8" font-size="12">С сохранением расположения.</text>
+    <rect x="217" y="275" width="62" height="3" rx="1.5" fill="url(#accent)"/>
+    <!-- Right output -->
+    <rect x="620" y="102" width="542" height="276" rx="14" fill="#0e111d" stroke="#51496c"/>
+    <rect x="628" y="110" width="526" height="260" rx="9" fill="url(#screen)"/>
+    <path d="M628 294 737 209 845 284 956 185 1154 321v49H628Z" fill="#585185" opacity=".24"/>
+    <path d="M628 332 773 271 928 342 1045 261 1154 306v64H628Z" fill="#171c36" opacity=".55"/>
+    <rect x="639" y="121" width="504" height="22" rx="11" fill="#171a2c" opacity=".8"/>
+    <circle cx="653" cy="132" r="3" fill="#bfb2f9"/><circle cx="663" cy="132" r="3" fill="#bfb2f9" opacity=".5"/>
+    <rect x="866" y="127" width="45" height="10" rx="5" fill="#baacf7" opacity=".7"/>
+    <text x="1089" y="136" fill="#cdc6e1" font-size="9">Noctalia</text>
+    <rect x="669" y="179" width="42" height="42" rx="12" fill="#88dacc"/>
+    <path d="m685 188-8 12 8 12m10-24 8 12-8 12" fill="none" stroke="#1e4b4c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="690" y="239" fill="#e7e2f6" font-size="11" text-anchor="middle">Приложения</text>
+    <g transform="translate(674 277)" fill="none" stroke="#c9bdf1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h30M11 8V2h10v6M5 9l2 30h19l2-30M12 15v17m9-17v17"/></g>
+    <text x="690" y="338" fill="#e7e2f6" font-size="11" text-anchor="middle">Корзина</text>
+    <!-- Illustrative theme-aware menu -->
+    <rect x="778" y="166" width="306" height="176" rx="16" fill="#191b2b" stroke="#56506c"/>
+    <rect x="787" y="175" width="288" height="36" rx="9" fill="#c4b8fc"/>
+    <path d="M801 188h10m-5-5v10" stroke="#332c57" stroke-width="1.8" stroke-linecap="round"/>
+    <text x="822" y="198" fill="#332c57" font-size="13" font-weight="600">Создать</text>
+    <path d="m1054 187 5 6-5 6" fill="none" stroke="#332c57" stroke-width="1.8" stroke-linecap="round"/>
+    <text x="800" y="237" fill="#e0daed" font-size="12">Папку · документ · ярлык</text>
+    <path d="M794 253h274" stroke="#343247"/>
+    <text x="800" y="278" fill="#d1cadf" font-size="12">Упорядочить значки</text>
+    <text x="800" y="310" fill="#d1cadf" font-size="12">Свойства рабочего стола</text>
+    <!-- Monitor feet and labels -->
+    <path d="M277 379v12h-37v5h138v-5h-37v-12M859 379v12h-37v5h138v-5h-37v-12" fill="#38334f"/>
+    <text x="309" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ФАЙЛЫ И ПАПКИ</text>
+    <text x="891" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ЯРЛЫКИ И МЕНЮ</text>
+    <path d="M584 238h32m-7-7 7 7-7 7m-18-14-7 7 7 7" fill="none" stroke="#bba9f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
