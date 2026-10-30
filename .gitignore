@@ -10,3 +10,6 @@ qrc_*.cpp
 nohup.out
 __pycache__/
 *.pyc
+
+# Local notes and files that must not be committed
+/ignor/

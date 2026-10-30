@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
-project(OhMyDesktop VERSION 1.0 LANGUAGES CXX)
+project(OhMyDesktop VERSION 1.0.0 LANGUAGES CXX)
+include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -68,7 +69,25 @@ target_link_libraries(oh-my-desktop PRIVATE
     LayerShellQt::Interface
 )
 
-# Permanent installation intentionally disabled in this experimental safety build.
+# Keep private Python helpers beside the real executable, also for staged installs.
+target_compile_definitions(oh-my-desktop PRIVATE OMD_VERSION="${PROJECT_VERSION}")
+set(OMD_PRIVATE_DIR "${CMAKE_INSTALL_LIBEXECDIR}/oh-my-desktop")
+set(OMD_PRIVATE_FULL_DIR "${CMAKE_INSTALL_FULL_LIBEXECDIR}/oh-my-desktop")
+configure_file(packaging/oh-my-desktop.in oh-my-desktop-launcher @ONLY)
+configure_file(packaging/oh-my-desktop.service.in oh-my-desktop.service @ONLY)
+install(TARGETS oh-my-desktop RUNTIME DESTINATION "${OMD_PRIVATE_DIR}")
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/oh-my-desktop-launcher"
+    DESTINATION "${CMAKE_INSTALL_BINDIR}" RENAME oh-my-desktop)
+install(PROGRAMS src/desktop_pages.py DESTINATION "${CMAKE_INSTALL_BINDIR}" RENAME oh-my-desktop-pages)
+install(FILES src/safe_transfer.py src/open_shortcut.py src/app_probe.py src/application_icon.py
+    DESTINATION "${OMD_PRIVATE_DIR}")
+install(FILES src/send_to_desktop.py DESTINATION "${OMD_PRIVATE_DIR}" RENAME send-to-desktop.py)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/oh-my-desktop.service"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/systemd/user")
+install(FILES packaging/io.github.MrGlany.OhMyDesktop.desktop
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+install(FILES LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/oh-my-desktop")
+install(FILES README.md DESTINATION "${CMAKE_INSTALL_DOCDIR}")
 
 configure_file(src/application_icon.py application_icon.py COPYONLY)
 configure_file(src/app_probe.py app_probe.py COPYONLY)

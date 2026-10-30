@@ -1,0 +1,15 @@
+[Unit]
+Description=Oh My Desktop icons for Hyprland
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/oh-my-desktop
+ExecStopPost=@OMD_PRIVATE_FULL_DIR@/oh-my-desktop --cleanup-dolphin-menu
+# Applications opened from the desktop must survive stopping the icon manager.
+KillMode=process
+TimeoutStopSec=15
+
+[Install]
+WantedBy=graphical-session.target

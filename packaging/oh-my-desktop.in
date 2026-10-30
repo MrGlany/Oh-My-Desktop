@@ -1,0 +1,4 @@
+#!/bin/sh
+# exec preserves signal delivery. Only this process receives the Wayland override.
+export QT_QPA_PLATFORM=wayland
+exec "@OMD_PRIVATE_FULL_DIR@/oh-my-desktop" "$@"

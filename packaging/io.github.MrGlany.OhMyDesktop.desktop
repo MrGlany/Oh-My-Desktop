@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Oh My Desktop
+Name[ru]=Oh My Desktop
+Comment=Desktop icons and pages for Hyprland
+Comment[ru]=Значки и страницы рабочего стола для Hyprland
+Exec=oh-my-desktop
+TryExec=oh-my-desktop
+Icon=user-desktop
+Terminal=false
+Categories=Utility;
+StartupNotify=false

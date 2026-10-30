@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
+#include <cstdio>
 
 static int shutdownWriteFd = -1;
 static void requestShutdown(int) {
@@ -25,6 +26,10 @@ static void requestShutdown(int) {
 
 int main(int argc, char *argv[])
 {
+    if(argc==2&&QByteArray(argv[1])=="--version"){
+        std::puts("Oh My Desktop " OMD_VERSION);
+        return 0;
+    }
     if(argc==2&&QByteArray(argv[1])=="--cleanup-dolphin-menu"){
         QCoreApplication cleanup(argc,argv);
         return DolphinIntegration::cleanupStopped()?0:1;

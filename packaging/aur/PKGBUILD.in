@@ -1,0 +1,41 @@
+# Maintainer: MrGlany <https://github.com/MrGlany>
+pkgname=oh-my-desktop
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Desktop icons, per-monitor pages and Dolphin integration for Hyprland'
+arch=('x86_64')
+url='https://github.com/MrGlany/Oh-My-Desktop'
+license=('MIT')
+depends=('gcc-libs' 'glibc' 'qt6-base' 'qt6-wayland' 'qt6-svg' 'layer-shell-qt'
+         'python' 'hyprland' 'xdg-utils' 'xdg-user-dirs' 'dolphin' 'kio'
+         'breeze-icons' 'systemd')
+makedepends=('cmake' 'ninja')
+optdepends=('qt6-translations: Russian Qt dialogs'
+            'udisks2: mount disks when opening unavailable links'
+            'util-linux: inspect storage devices for unavailable links'
+            'polkit: authorize mounting with a session authentication agent'
+            'libnotify: shortcut creation notifications'
+            'icoutils: read application icons from Windows executables'
+            'squashfs-tools: read icons from type 2 AppImages')
+source=("$pkgname-$pkgver.tar.xz::$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.xz")
+sha256sums=('@SHA256@')
+
+build() {
+  cmake -S "$pkgname-$pkgver" -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBEXECDIR=lib \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_DOCDIR=share/doc/oh-my-desktop \
+    -DOMD_BUILD_LAUNCHER_CHECK=ON
+  cmake --build build
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+  build/oh-my-desktop --version
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
