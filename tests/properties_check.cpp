@@ -3,6 +3,8 @@
 #include "desktopicon.h"
 #include "trashmonitor.h"
 #include "desktoptextdialog.h"
+#include "desktopwindow.h"
+#include <LayerShellQt/Window>
 #include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QListWidget>
@@ -55,6 +57,41 @@ static bool computerIcon(DesktopScene &scene) {
 int main(int argc,char **argv) {
     QApplication app(argc,argv);
     if(!qEnvironmentVariable("XDG_CONFIG_HOME").contains("properties-check"))return 10;
+    if(app.arguments().contains("--layer-text-input-focus-check")) {
+        const QString desktop=qEnvironmentVariable("OMD_DESKTOP_DIR");
+        if(!desktop.contains("properties-check-layer-focus"))return 91;
+        QDir().mkpath(desktop);
+        DesktopWindow desktopWindow(app.primaryScreen());
+        auto *layer=LayerShellQt::Window::get(desktopWindow.windowHandle());
+        layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);
+        QTest::qWait(400);
+        layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
+        QTest::qWait(150);
+        const bool layerFocused=QGuiApplication::focusWindow()==desktopWindow.windowHandle();
+        fprintf(stderr,"Before dialog: desktop keyboard focus=%d\n",layerFocused);
+        bool focused=false,ok=false;
+        QTimer::singleShot(600,[&]{
+            auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
+            auto *edit=d?d->findChild<QLineEdit*>():nullptr;
+            focused=d&&d->isActiveWindow()&&edit&&edit->hasFocus()&&QGuiApplication::focusWindow()==d->windowHandle();
+            fprintf(stderr,"Dialog: active=%d text-focused=%d layer-mode=%d\n",d&&d->isActiveWindow(),edit&&edit->hasFocus(),int(layer->keyboardInteractivity()));
+            if(!focused){if(d)d->reject();return;}
+            QTest::keyClicks(QApplication::focusWidget(),"New name");
+            QTest::keyClick(QApplication::focusWidget(),Qt::Key_Return);
+        });
+        const QString result=DesktopDialogs::getText(&desktopWindow,app.primaryScreen(),"Проверка фокуса слоя рабочего стола","Имя:","Old name",&ok);
+        const bool restored=layer->keyboardInteractivity()==LayerShellQt::Window::KeyboardInteractivityOnDemand;
+        if(!layerFocused||!focused||!ok||result!="New name"||!restored)return 92;
+        bool pausedOnCancel=false;ok=true;
+        QTimer::singleShot(100,[&]{
+            auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
+            pausedOnCancel=layer->keyboardInteractivity()==LayerShellQt::Window::KeyboardInteractivityNone;
+            if(d)d->reject();
+        });
+        const QString cancelled=DesktopDialogs::getText(&desktopWindow,app.primaryScreen(),"Проверка отмены переименования","Имя:","Old name",&ok);
+        if(!pausedOnCancel||ok||!cancelled.isEmpty()||layer->keyboardInteractivity()!=LayerShellQt::Window::KeyboardInteractivityOnDemand)return 93;
+        puts("PASS focused layer -> active text dialog -> keyboard typing; layer restored after accept and cancel");return 0;
+    }
     if(app.arguments().contains("--text-input-focus-check")) {
         QWidget owner;bool focused=false,ok=false;
         QTimer::singleShot(600,[&]{
