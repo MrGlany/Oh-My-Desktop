@@ -37,6 +37,8 @@ public:
     bool receiveDesktopDrop(DesktopScene *source, const QStringList &keys, QPoint position);
     QString currentPage() const { return m_pageId; }
     QString monitorName() const { return m_screenName; }
+    QString desktopDirectory() const { return m_desktopPath; }
+    bool placeDesktopLinks(const QStringList &names,const QString &page);
     bool setCurrentPage(const QString &id);
     bool stepPage(int direction);
     bool moveIconsToPage(DesktopScene *source,const QStringList &keys,const QString &page);

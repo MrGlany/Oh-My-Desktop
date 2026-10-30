@@ -34,9 +34,16 @@ PageControl::PageControl(QObject *parent):QObject(parent) {
                         if(direction==1||direction==-1)response["ok"]=scene->stepPage(direction);
                     } else if(command=="activate")response["ok"]=scene->setCurrentPage(request.value("page").toString());
                     else if(command=="status")response["ok"]=true;
+                    else if(command=="place-links"){
+                        QStringList names;
+                        const auto values=request.value("names").toArray();
+                        bool valid=!values.isEmpty();for(const auto &v:values){if(!v.isString()){valid=false;break;}names.append(v.toString());}
+                        if(valid)response["ok"]=scene->placeDesktopLinks(names,request.value("page").toString());
+                    }
                     auto *layout=DesktopLayout::instance();QJsonArray pages;
                     for(const auto &p:layout->pages(scene->monitorName()))pages.append(QJsonObject{{"id",p.id},{"name",p.name}});
                     response["pages"]=pages;response["active"]=layout->activePage(scene->monitorName());
+                    response["monitor"]=scene->monitorName();response["desktop"]=scene->desktopDirectory();
                     break;
                 }
                 socket->write(QJsonDocument(response).toJson(QJsonDocument::Compact)+'\n');socket->disconnectFromServer();

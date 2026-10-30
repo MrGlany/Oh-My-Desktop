@@ -203,6 +203,22 @@ static int pagesCheck(bool reload) {
         model->setFocusedScreen("HDMI-A-1");if(!client("status",""))return 248;
         model->setFocusedScreen("not-connected");if(model->focusedScreen()!="HDMI-A-1")return 249;
         model->setFocusedScreen("DP-1");if(!client("status",""))return 250;
+        // End-to-end: the real helper asks the running app for the active target.
+        const QString origin=path+"/../dolphin-origin";QDir().mkpath(origin);
+        QFile data(origin+"/data.txt");if(!data.open(QIODevice::WriteOnly))return 252;data.write("original folder data\n");data.close();
+        QFile dirs(qEnvironmentVariable("XDG_CONFIG_HOME")+"/user-dirs.dirs");
+        if(!dirs.open(QIODevice::WriteOnly))return 253;
+        dirs.write(("XDG_DESKTOP_DIR=\""+path+"\"\n").toUtf8());dirs.close();
+        model->setFocusedScreen("HDMI-A-1");if(!left.setCurrentPage("left-extra"))return 254;QTest::qWait(100);
+        QProcess sendLink;sendLink.start("/usr/bin/python3",{"-I",QCoreApplication::applicationDirPath()+"/send-to-desktop.py","--quiet","--",origin});
+        QSignalSpy linkFinished(&sendLink,&QProcess::finished);if(!linkFinished.wait(5000))return 255;
+        if(sendLink.exitCode()!=0)return 256;QTest::qWait(400);
+        const QString linkName="dolphin-origin — ярлык";
+        if(!QFileInfo(path+"/"+linkName).isSymLink()||model->owner(linkName)!="HDMI-A-1"||model->entryPage(linkName)!="left-extra")return 257;
+        if(!layoutIcon(left,linkName)||layoutIcon(right,linkName))return 258;
+        if(right.placeDesktopLinks({"../dolphin-origin"},"main")||right.placeDesktopLinks({"legacy.txt"},"main")||right.placeDesktopLinks({linkName},"not-present"))return 259;
+        if(!data.open(QIODevice::ReadOnly)||data.readAll()!="original folder data\n")return 260;data.close();
+        if(!left.setCurrentPage("main"))return 261;model->setFocusedScreen("DP-1");QTest::qWait(300);
         auto *pager=right.findChild<PagePager*>();if(!pager||!pager->isVisible()||pager->geometry().center().x()<850)return 211;
         for(auto *i:right.findChildren<DesktopIcon*>())if(!i->isHidden()&&i->geometry().intersects(pager->geometry()))return 212;
         PropertiesDialog preview(right.desktopSettings());preview.selectPageMonitor("DP-1");preview.findChild<QTabWidget*>()->setCurrentIndex(2);preview.show();QTest::qWait(100);preview.grab().save(path+"/../pages-settings.png");preview.reject();

@@ -10,6 +10,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 find_package(LayerShellQt REQUIRED)
 
 set(SOURCES
+    src/dolphinintegration.cpp
     src/pagecarousel.cpp
     src/pagepager.cpp
     src/pagesettings.cpp
@@ -67,9 +68,26 @@ target_link_libraries(oh-my-desktop PRIVATE
 configure_file(src/safe_transfer.py safe_transfer.py COPYONLY)
 configure_file(src/open_shortcut.py open_shortcut.py COPYONLY)
 configure_file(src/desktop_pages.py desktop_pages.py COPYONLY)
+configure_file(src/send_to_desktop.py send-to-desktop.py COPYONLY)
 enable_testing()
 add_test(NAME file_safety COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_safe_transfer.py)
 add_test(NAME unavailable_shortcuts COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_open_shortcut.py)
+add_test(NAME desktop_links COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_desktop_links.py)
+option(OMD_BUILD_DOLPHIN_CHECK "Build isolated KDE context menu lifecycle check" OFF)
+if(OMD_BUILD_DOLPHIN_CHECK)
+    find_package(KF6KIO REQUIRED)
+    find_package(KF6Service REQUIRED)
+    add_executable(dolphin-menu-check tests/dolphin_menu_check.cpp src/dolphinintegration.cpp)
+    target_include_directories(dolphin-menu-check PRIVATE src)
+    target_link_libraries(dolphin-menu-check PRIVATE Qt6::Widgets KF6::KIOWidgets KF6::Service)
+    add_executable(dolphin-menu-presence tests/dolphin_menu_presence.cpp)
+    target_link_libraries(dolphin-menu-presence PRIVATE Qt6::Widgets KF6::KIOWidgets)
+    add_test(NAME dolphin_menu_lifecycle COMMAND ${CMAKE_COMMAND} -E env
+        QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic
+        XDG_DATA_HOME=${CMAKE_BINARY_DIR}/dolphin-check-data
+        XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/dolphin-check-config
+        $<TARGET_FILE:dolphin-menu-check>)
+endif()
 option(OMD_BUILD_LAUNCHER_CHECK "Build independent app launch check" OFF)
 if(OMD_BUILD_LAUNCHER_CHECK)
     add_executable(launcher-check tests/launcher_check.cpp src/launcherutil.cpp)

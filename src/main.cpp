@@ -1,5 +1,6 @@
 #include "desktopwindow.h"
 #include "pagecontrol.h"
+#include "dolphinintegration.h"
 #ifdef OMD_BUILD_SMOKE
 #include "smoketest.h"
 #endif
@@ -24,6 +25,10 @@ static void requestShutdown(int) {
 
 int main(int argc, char *argv[])
 {
+    if(argc==2&&QByteArray(argv[1])=="--cleanup-dolphin-menu"){
+        QCoreApplication cleanup(argc,argv);
+        return DolphinIntegration::cleanupStopped()?0:1;
+    }
     int shutdownPipe[2];
     if (pipe2(shutdownPipe, O_NONBLOCK | O_CLOEXEC) != 0) return 1;
     shutdownWriteFd = shutdownPipe[1];
@@ -73,6 +78,10 @@ int main(int argc, char *argv[])
             w->deleteLater();
         }
     });
+
+    DolphinIntegration dolphin;
+    if(!dolphin.activate())qWarning("Dolphin menu could not be registered; desktop files are unaffected");
+    QObject::connect(&app,&QCoreApplication::aboutToQuit,[&]{dolphin.deactivate();});
 
 #ifdef OMD_BUILD_SMOKE
     scheduleSmokeTest(windows);

@@ -9,6 +9,8 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QApplication>
+#include <QDir>
+#include <QFileInfo>
 
 using PageImage=QList<QPair<QPoint,QPixmap>>;
 static PageImage capturePage(const QList<DesktopIcon*> &icons) {
@@ -79,6 +81,17 @@ bool DesktopScene::moveIconsToPage(DesktopScene *source,const QStringList &keys,
     source->savePositions();
     if(!DesktopLayout::instance()->assign(keys,m_screenName,page))return false;
     source->queueRefresh(0);queueRefresh(0);return true;
+}
+bool DesktopScene::placeDesktopLinks(const QStringList &names,const QString &page){
+    if(names.isEmpty()||names.size()>64)return false;
+    QSet<QString> seen;
+    for(const auto &name:names){
+        if(name.isEmpty()||name=="."||name==".."||name.contains('/')||name.contains('\\')||name.contains(QChar(0))||name.startsWith("__")||name.startsWith(".omd-")||seen.contains(name))return false;
+        seen.insert(name);
+        if(!QFileInfo(QDir(m_desktopPath).filePath(name)).isSymLink())return false;
+    }
+    if(!DesktopLayout::instance()->assign(names,m_screenName,page))return false;
+    queueRefresh(0);return true;
 }
 void DesktopScene::chooseIconPage() {
     QStringList keys;

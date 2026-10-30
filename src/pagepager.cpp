@@ -33,7 +33,7 @@ void PagePager::setPages(const QList<DesktopPage> &pages,const QString &active,c
     m_pages=pages;m_active=active;m_monitor=monitor;
     setFixedSize(72+24*qMin(9,int(pages.size())),40);
     QString name;for(const auto &p:pages)if(p.id==active)name=p.name;
-    setToolTip(monitor+" · "+name+"\nКолесо: страницы · ПКМ: настройки\nПеретащите значок на точку нужной страницы");
+    setToolTip(monitor+" · "+name+"\nДомик — основная страница\nКолесо: страницы · ПКМ: настройки\nПеретащите значок на точку нужной страницы");
     update();
 }
 int PagePager::indexAt(QPoint p) const {
@@ -58,8 +58,18 @@ void PagePager::paintEvent(QPaintEvent *) {
         if(!active)color.setAlpha(n==m_hover?210:110);
         p.setPen(Qt::NoPen);p.setBrush(color);
         if(active)p.drawRoundedRect(QRectF(x-11,14,22,12),6,6);
-        else if(m_pages[n].id=="main") {p.setPen(QPen(color,1.6));p.setBrush(Qt::NoBrush);p.drawEllipse(QPointF(x,20),4,4);}
-        else p.drawEllipse(QPointF(x,20),4,4);
+        if(m_pages[n].id=="main") {
+            const QColor accent=palette().highlight().color();
+            if(!active) {
+                QColor tint=accent;tint.setAlpha(24);p.setBrush(tint);p.setPen(Qt::NoPen);
+                p.drawRoundedRect(QRectF(x-8,12,16,16),8,8);
+            }
+            const QColor ink=active?palette().highlightedText().color():accent;
+            p.setPen(QPen(ink,1.35,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(Qt::NoBrush);
+            p.drawPolyline(QPolygonF{QPointF(x-4.5,20),QPointF(x,15.8),QPointF(x+4.5,20)});
+            p.drawPolyline(QPolygonF{QPointF(x-3.2,19.5),QPointF(x-3.2,24.5),QPointF(x-1,24.5),
+                QPointF(x-1,21.5),QPointF(x+1,21.5),QPointF(x+1,24.5),QPointF(x+3.2,24.5),QPointF(x+3.2,19.5)});
+        } else if(!active)p.drawEllipse(QPointF(x,20),4,4);
     }
 }
 void PagePager::mousePressEvent(QMouseEvent *e) {
