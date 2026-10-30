@@ -43,7 +43,7 @@ QPair<int,int> DesktopScene::nextFreeCell() const
     for (int col = 0; col < maxCols(); ++col) {
         for (int row = 0; row < maxRows(); ++row) {
             const auto cell = qMakePair(col, row);
-            if (!m_occupiedCells.contains(cell))
+            if (!m_occupiedCells.contains(cell) && !cellReserved(col,row))
                 return cell;
         }
     }
@@ -68,7 +68,7 @@ QPair<int,int> DesktopScene::nearestFreeCell(QPair<int,int> target,
                 const int row = qBound(0, target.second + dr, rows - 1);
                 const auto cell = qMakePair(col, row);
                 const QString owner = m_occupiedCells.value(cell);
-                if (owner.isEmpty() || owner == skipName)
+                if (!cellReserved(col,row) && (owner.isEmpty() || owner == skipName))
                     return cell;
             }
         }

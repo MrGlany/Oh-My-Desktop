@@ -32,6 +32,7 @@ public:
 
     explicit PropertiesDialog(const Settings &s, QWidget *parent = nullptr, bool applicationsOnly = false);
     Settings currentSettings() const;
+    void selectPageMonitor(const QString &monitor);
 
 signals:
     void iconSizeChanged(int size);
@@ -41,6 +42,7 @@ signals:
     void applicationShortcutRequested(const QString &desktopFilePath);
 
 private:
+    class PageSettings *m_pages = nullptr;
     void refreshTheme();
     void resetDefaults();
     void populateApplicationsList();

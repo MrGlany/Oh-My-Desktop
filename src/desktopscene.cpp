@@ -60,13 +60,14 @@ DesktopScene::DesktopScene(QScreen *screen, QWidget *parent)
     setObjectName("DesktopScene");
     setFocusPolicy(Qt::StrongFocus);
     connect(DesktopLayout::instance(), &DesktopLayout::changed, this,
-            [this]{queueRefresh(0);}, Qt::QueuedConnection);
+            [this]{syncCurrentPage();}, Qt::QueuedConnection);
 
     m_desktopPath = qEnvironmentVariable("OMD_DESKTOP_DIR");
     if (m_desktopPath.isEmpty())
         m_desktopPath = QStandardPaths::writableLocation(QStandardPaths::DesktopLocation);
     QDir().mkpath(m_desktopPath);
 
+    m_pageId=DesktopLayout::instance()->activePage(m_screenName);
     loadPositions();
 
     // Load persistent UI state
@@ -131,6 +132,17 @@ DesktopScene::DesktopScene(QScreen *screen, QWidget *parent)
 
     queueRefresh();
 
+    // A mount changes the link target, not the Desktop directory. A cheap
+    // metadata check also covers mounts performed externally in Dolphin.
+    auto *linksTimer = new QTimer(this);
+    linksTimer->setInterval(3000);
+    linksTimer->setTimerType(Qt::VeryCoarseTimer);
+    connect(linksTimer, &QTimer::timeout, this, [this] {
+        if (m_nativeDragging) return;
+        for (auto *icon : m_icons) icon->refreshLinkState();
+    });
+    linksTimer->start();
+
     m_watcher->addPath(m_desktopPath);
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this]() {
         queueRefresh(kDirChangeDebounceMs);
@@ -147,6 +159,7 @@ DesktopScene::DesktopScene(QScreen *screen, QWidget *parent)
     m_iconCtxMenu    = new InlineMenu(this);
     m_newMenu        = new InlineMenu(this);
     m_systemMenu     = new InlineMenu(this);
+    initializePages();
 
     // Tooltip - top-level Qt::ToolTip window so Hyprland places it above layer-shell surfaces.
     m_tooltipWindow = new QWidget(nullptr,
@@ -254,7 +267,7 @@ QString DesktopScene::configPath() const
 
 bool DesktopScene::claimEntry(const QString &name)
 {
-    if (DesktopLayout::instance()->assign({name}, m_screenName)) return true;
+    if (DesktopLayout::instance()->assign({name}, m_screenName,m_pageId)) return true;
     QMessageBox::warning(this, "Расположение значка", "Не удалось сохранить монитор для значка. Файл сохранён на рабочем столе.");
     return false;
 }
@@ -375,7 +388,7 @@ void DesktopScene::openIconFromKeyboard(DesktopIcon *icon)
 void DesktopScene::loadPositions()
 {
     QSettings cfg(configPath(), QSettings::IniFormat);
-    cfg.beginGroup("positions");
+    cfg.beginGroup(m_pageId=="main" ? "positions" : "pages/"+m_pageId+"/positions");
     for (const QString &key : cfg.childKeys()) {
         m_positions[key] = cfg.value(key).toPoint();
     }
@@ -385,7 +398,7 @@ void DesktopScene::loadPositions()
 void DesktopScene::savePositions()
 {
     QSettings cfg(configPath(), QSettings::IniFormat);
-    cfg.beginGroup("positions");
+    cfg.beginGroup(m_pageId=="main" ? "positions" : "pages/"+m_pageId+"/positions");
     cfg.remove(""); // clear old
     for (auto it = m_positions.cbegin(); it != m_positions.cend(); ++it) {
         cfg.setValue(it.key(), it.value());
@@ -446,17 +459,20 @@ QFileInfoList DesktopScene::scanDesktopFiles() const
         default:                sortFlags = QDir::Name; break;
     }
     if (m_autoArrange) sortFlags |= QDir::DirsFirst;
-    QDir::Filters filters = QDir::AllEntries | QDir::NoDotAndDotDot;
+    // Qt excludes dangling symlinks unless System is set. Keep the symlinks
+    // but explicitly exclude devices, sockets and FIFOs included by that flag.
+    QDir::Filters filters = QDir::AllEntries | QDir::System | QDir::NoDotAndDotDot;
     if (m_showHidden) filters |= QDir::Hidden;
     auto entries = dir.entryInfoList(filters, sortFlags);
     entries.erase(std::remove_if(entries.begin(), entries.end(), [](const QFileInfo &f) {
-        return f.fileName().startsWith(".omd-stage-") || f.fileName().startsWith(".omd-recovery-");
+        return (!f.isSymLink() && !f.isFile() && !f.isDir()) ||
+               f.fileName().startsWith(".omd-stage-") || f.fileName().startsWith(".omd-recovery-");
     }), entries.end());
     QStringList names;
     for (const auto &entry : entries) names.append(entry.fileName());
     DesktopLayout::instance()->rememberDefaults(names);
     entries.erase(std::remove_if(entries.begin(), entries.end(), [this](const QFileInfo &f) {
-        return DesktopLayout::instance()->owner(f.fileName()) != m_screenName;
+        return !DesktopLayout::instance()->visible(f.fileName(),m_screenName);
     }), entries.end());
     return entries;
 }
@@ -468,7 +484,7 @@ void DesktopScene::removeDeletedIcons(const QSet<QString>& expectedNames)
         // Virtual icons are never removed by refresh
         if (icon->isVirtual()) { ++it; continue; }
         if (!expectedNames.contains(icon->fileInfo().fileName())) {
-            m_icons.erase(it);
+            it = m_icons.erase(it);
             icon->hide();
             icon->deleteLater();
         } else {
@@ -558,7 +574,7 @@ void DesktopScene::syncVirtualIcons()
 
     auto ensureVirtual = [&](DesktopIcon::VirtualType type, const QString &key,
                              bool shouldShow) {
-        shouldShow = shouldShow && DesktopLayout::instance()->owner(key) == m_screenName;
+        shouldShow = shouldShow && DesktopLayout::instance()->visible(key,m_screenName);
         if (shouldShow && !hasVirtual(type)) {
             auto *icon = new DesktopIcon(type, m_iconSize, this);
             QPair<int,int> cell;
@@ -618,6 +634,8 @@ void DesktopScene::updateIconPreview()
 void DesktopScene::refresh()
 {
     if (m_nativeDragging) return;
+    if(m_pageId!=DesktopLayout::instance()->activePage(m_screenName)){syncCurrentPage();return;}
+    if(m_pageTransition){queueRefresh(260);return;}
     // Guard against re-entrant calls (e.g. QFileSystemWatcher firing during
     // a rename operation that's already inside refresh()).
     static bool inRefresh = false;
@@ -661,6 +679,7 @@ void DesktopScene::refresh()
         applyAutoArrange();
 
     updateIconPreview();
+    updatePager();
     update(); // Repaint transparent pixels left by moved/removed children.
     inRefresh = false;
 }
@@ -671,6 +690,47 @@ void DesktopScene::onOpenRequested(const QFileInfo &fileInfo)
 {
     const QString path = fileInfo.absoluteFilePath();
     if (path.isEmpty()) return;
+
+    const QFileInfo fresh(path);
+    if (fresh.isSymLink() && !fresh.exists()) {
+        // One outstanding authorization per process; never block the Qt loop.
+        static bool connecting = false;
+        if (connecting) return;
+        const QString helper = QCoreApplication::applicationDirPath()+"/open_shortcut.py";
+        if (!QFileInfo::exists(helper)) {
+            QMessageBox::warning(this, "Ярлык", "Не найден помощник подключения дисков. Откройте диск в Dolphin.");
+            return;
+        }
+        connecting = true;
+        auto *proc = new QProcess(qApp);
+        QPointer<DesktopScene> scene(this);
+        const auto done = [scene, proc, path](bool started) {
+            connecting = false;
+            const QJsonObject result = QJsonDocument::fromJson(proc->readAllStandardOutput()).object();
+            const QString target = result.value("path").toString();
+            if (started && proc->exitStatus() == QProcess::NormalExit && proc->exitCode() == 0 &&
+                !target.isEmpty() && QFileInfo(path).isSymLink() &&
+                QFileInfo(path).symLinkTarget() == target && QFileInfo(target).exists()) {
+                LauncherUtil::startDetachedWindowedProgram(QFileInfo(target).isDir() ? "dolphin" : "xdg-open", {target});
+                if (scene) for (auto *icon : scene->m_icons) icon->refreshLinkState();
+            } else if (scene) {
+                QString error = result.value("error").toString();
+                if (error.isEmpty()) error = "Не удалось открыть ярлык. Подключите диск в Dolphin и попробуйте снова.";
+                QMessageBox::warning(scene, "Ярлык недоступен", error);
+            }
+            proc->deleteLater();
+        };
+        connect(proc, &QProcess::finished, qApp, [done](int, QProcess::ExitStatus) { done(true); });
+        connect(proc, &QProcess::errorOccurred, qApp, [done](QProcess::ProcessError error) {
+            if (error == QProcess::FailedToStart) done(false);
+        });
+        proc->start("/usr/bin/python3", {"-I", helper, path});
+        return;
+    }
+    if (fresh.isDir()) {
+        LauncherUtil::startDetachedWindowedProgram("dolphin", {path});
+        return;
+    }
 
     const QString ext = fileInfo.suffix().toLower();
     const static QSet<QString> textExts = {
@@ -1123,6 +1183,10 @@ void DesktopScene::leaveEvent(QEvent *event)
 
 void DesktopScene::wheelEvent(QWheelEvent *event)
 {
+    if(event->modifiers().testFlag(Qt::MetaModifier) && event->modifiers().testFlag(Qt::ShiftModifier)) {
+        if(event->angleDelta().y())stepPage(event->angleDelta().y()>0?-1:1);
+        event->accept();return;
+    }
     if (event->modifiers() & Qt::ControlModifier) {
         const int delta = event->angleDelta().y() > 0 ? 1 : -1;
         applyIconSize(qBound(kIconSizeSliderMin, m_iconSize + delta, kIconSizeSliderMax));
@@ -1322,7 +1386,7 @@ void DesktopScene::onIconContextMenuRequested(DesktopIcon *icon, QPoint scenePos
         const QFileInfo fi = icon->fileInfo();
 
         menu->addAction("Open", [this, fi] {
-            if (QFileInfo::exists(fi.absoluteFilePath()))
+            if (QFileInfo::exists(fi.absoluteFilePath()) || QFileInfo(fi.absoluteFilePath()).isSymLink())
                 onOpenRequested(fi);
         });
         menu->addSep();
@@ -1397,6 +1461,8 @@ void DesktopScene::onIconContextMenuRequested(DesktopIcon *icon, QPoint scenePos
         }
     }
 
+    menu->addSep();
+    menu->addAction("Переместить на страницу…",[this]{chooseIconPage();});
     menu->popup(scenePos, menuBoundary());
 }
 
@@ -1875,7 +1941,9 @@ void DesktopScene::onShowProperties()
 {
     auto baseline = desktopSettings();
     auto baselinePositions = m_positions;
+    auto baselinePage = m_pageId;
     PropertiesDialog dlg(baseline, nullptr);
+    dlg.selectPageMonitor(m_screenName);
 
     // Live preview: fast resize - remap positions to new grid
     connect(&dlg, &PropertiesDialog::iconSizeChanged, this, [this](int sz) {
@@ -1898,6 +1966,7 @@ void DesktopScene::onShowProperties()
                 scene->applyDesktopSettings(settings, true);
         baseline = settings;
         baselinePositions = m_positions;
+        baselinePage = m_pageId;
     };
     connect(&dlg, &PropertiesDialog::applied, this, commit);
     if (dlg.exec() == QDialog::Accepted) {
@@ -1905,7 +1974,7 @@ void DesktopScene::onShowProperties()
     } else {
         // Cancel only changes since the latest Apply, including live previews.
         applyDesktopSettings(baseline, false);
-        m_positions = baselinePositions;
+        if(m_pageId==baselinePage)m_positions = baselinePositions;
         m_occupiedCells.clear();
         refresh();
         savePositions();

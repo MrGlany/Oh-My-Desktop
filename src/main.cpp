@@ -1,4 +1,5 @@
 #include "desktopwindow.h"
+#include "pagecontrol.h"
 #ifdef OMD_BUILD_SMOKE
 #include "smoketest.h"
 #endif
@@ -43,6 +44,8 @@ int main(int argc, char *argv[])
     app.setApplicationName("Oh My Desktop");
     app.setOrganizationName("Oh My Desktop");
     app.setQuitOnLastWindowClosed(false);
+    PageControl control;
+    if(!control.listen())return 1;
     if (QIcon::fromTheme("folder").isNull()) QIcon::setThemeName("breeze");
 
     // Load retro stylesheet

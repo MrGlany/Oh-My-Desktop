@@ -250,6 +250,8 @@ void DesktopIcon::setCutState(bool cut)
 
 void DesktopIcon::resolveIcon()
 {
+    m_fileInfo.refresh();
+    m_unavailableLink = !isVirtual() && m_fileInfo.isSymLink() && !m_fileInfo.exists();
     // Invalidate cached rendered icon - it's about to change
     m_cachedIconPixmap = QPixmap();
     m_cachedIconSize = -1;
@@ -273,6 +275,13 @@ void DesktopIcon::resolveIcon()
         }
         if (m_icon.isNull())
             m_icon = QIcon::fromTheme("folder");
+        return;
+    }
+
+    if (m_unavailableLink) {
+        m_hasThumbnail = false;
+        m_thumbnail = QPixmap();
+        m_icon = QIcon::fromTheme("folder", QIcon::fromTheme("text-x-generic"));
         return;
     }
 
@@ -364,6 +373,20 @@ void DesktopIcon::setSelected(bool selected)
     update();
 }
 
+void DesktopIcon::refreshLinkState()
+{
+    if (isVirtual() || !m_fileInfo.isSymLink()) return;
+    QFileInfo fresh(m_fileInfo.absoluteFilePath());
+    const bool unavailable = fresh.isSymLink() && !fresh.exists();
+    if (unavailable == m_unavailableLink) return;
+    m_fileInfo = fresh;
+    m_hasThumbnail = false;
+    m_thumbnail = QPixmap();
+    if (m_isDesktopFile) m_desktopEntry = parseDesktopEntry(fresh.absoluteFilePath());
+    resolveIcon();
+    update();
+}
+
 void DesktopIcon::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
@@ -420,6 +443,21 @@ void DesktopIcon::paintEvent(QPaintEvent *)
         } else {
             m_icon.paint(&p, iconRect);
         }
+    }
+
+    if (m_unavailableLink) {
+        // Draw the lock ourselves: it remains legible with every icon theme.
+        const qreal s = qMax(14, m_iconDisplaySize / 2);
+        const QRectF badge(iconRect.right()-s+2, iconRect.bottom()-s+2, s, s);
+        p.save();
+        p.setPen(QPen(palette().color(QPalette::HighlightedText), 1.6));
+        p.setBrush(palette().color(QPalette::Highlight));
+        p.drawRoundedRect(badge, 4, 4);
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(badge.adjusted(s*.30, s*.15, -s*.30, -s*.40), s*.2, s*.2);
+        p.setBrush(palette().color(QPalette::HighlightedText));
+        p.drawRoundedRect(badge.adjusted(s*.22, s*.43, -s*.22, -s*.17), 1, 1);
+        p.restore();
     }
 
     // Hover brightening: white overlay on the icon image
@@ -558,6 +596,8 @@ void DesktopIcon::mouseDoubleClickEvent(QMouseEvent *event)
             }
             if (!uri.isEmpty())
                 LauncherUtil::openLocation(uri);
+        } else if (m_fileInfo.isSymLink() && !QFileInfo(m_fileInfo.absoluteFilePath()).exists()) {
+            emit openRequested(m_fileInfo);
         } else if (m_isDesktopFile && !m_desktopEntry.exec.isEmpty()) {
             // Run .desktop command via shell for maximum compatibility
             QString exec = m_desktopEntry.exec;

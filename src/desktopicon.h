@@ -46,6 +46,8 @@ public:
     void setDropTarget(bool on);
     void setCutState(bool cut);
     bool isCut() const { return m_cut; }
+    bool unavailableLink() const { return m_unavailableLink; }
+    void refreshLinkState();
 
 signals:
     void pressed(DesktopIcon *icon, bool ctrlHeld);
@@ -89,6 +91,7 @@ private:
     bool    m_dropTarget      = false;  // highlighted as drop target
     bool    m_cut             = false;  // dimmed: icon is in clipboard cut state
     bool    m_hasThumbnail    = false;
+    bool    m_unavailableLink = false;
     bool    m_ctrlAtPress     = false;
     bool    m_rightPressed    = false;
     bool    m_showPreview     = true;

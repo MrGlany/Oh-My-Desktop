@@ -187,7 +187,7 @@ bool DesktopScene::receiveDesktopDrop(DesktopScene *source, const QStringList &k
         if (!found || icons.contains(found)) return false;
         icons.append(found);
     }
-    if (!DesktopLayout::instance()->assign(keys, m_screenName)) return false;
+    if (!DesktopLayout::instance()->assign(keys, m_screenName,m_pageId)) return false;
     auto *leader = icons.first();
     m_dragStartPositions.clear();
     for (auto *icon : icons) {

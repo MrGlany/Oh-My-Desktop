@@ -49,6 +49,8 @@ static bool computerIcon(DesktopScene &scene) {
     return false;
 }
 #include "monitor_check.h"
+#include "offline_shortcut_check.h"
+#include "pages_check.h"
 int main(int argc,char **argv) {
     QApplication app(argc,argv);
     if(!qEnvironmentVariable("XDG_CONFIG_HOME").contains("properties-check"))return 10;
@@ -83,8 +85,13 @@ int main(int argc,char **argv) {
     }
     QTranslator ru;if(ru.load("qtbase_ru",QLibraryInfo::path(QLibraryInfo::TranslationsPath)))app.installTranslator(&ru);
     app.setApplicationName("PropertiesTest");app.setOrganizationName("PropertiesTest");
+    if(app.arguments().contains("--carousel-preview"))return carouselPreview();
+    if(app.arguments().contains("--pages-check"))return pagesCheck(false);
+    if(app.arguments().contains("--pages-check-reload"))return pagesCheck(true);
     if(app.arguments().contains("--monitor-check"))return monitorCheck(false);
     if(app.arguments().contains("--monitor-check-reload"))return monitorCheck(true);
+    if(app.arguments().contains("--offline-check"))return offlineShortcutCheck(false);
+    if(app.arguments().contains("--offline-check-reload"))return offlineShortcutCheck(true);
     {
         auto *platform = new RemovedTestScreen;
         QWindowSystemInterface::handleScreenAdded(platform);

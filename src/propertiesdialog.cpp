@@ -1,6 +1,7 @@
 #include "propertiesdialog.h"
 #include "desktopconstants.h"
 #include "themeutil.h"
+#include "pagesettings.h"
 #include <QFileSystemWatcher>
 #include <QScrollArea>
 #include <QScreen>
@@ -309,6 +310,7 @@ PropertiesDialog::PropertiesDialog(const Settings &s, QWidget *parent, bool appl
     scroll->setMinimumHeight(440);
     tabs->addTab(scroll, "Общие");
     tabs->addTab(applicationsTab, "Приложения");
+    if(!applicationsOnly){m_pages=new PageSettings(tabs);tabs->addTab(m_pages,"Страницы");}
     if (applicationsOnly) tabs->removeTab(0);
     contentLayout->addWidget(tabs);
 
@@ -319,9 +321,9 @@ PropertiesDialog::PropertiesDialog(const Settings &s, QWidget *parent, bool appl
         buttons->button(QDialogButtonBox::RestoreDefaults)->setText("По умолчанию");
         buttons->button(QDialogButtonBox::RestoreDefaults)->setToolTip("Вернуть стандартные параметры. Сохранить: Применить или ОК. Файлы и позиции не удаляются.");
         connect(buttons->button(QDialogButtonBox::RestoreDefaults), &QPushButton::clicked, this, &PropertiesDialog::resetDefaults);
-        connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, &PropertiesDialog::applied);
+        connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, [this]{if(!m_pages||m_pages->commit())emit applied();});
     }
-    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::accepted, this, [this]{if(!m_pages||m_pages->commit())accept();});
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     contentLayout->addWidget(buttons);
 
@@ -331,6 +333,8 @@ PropertiesDialog::PropertiesDialog(const Settings &s, QWidget *parent, bool appl
     refreshTheme();
     setFixedHeight(qMin(applicationsOnly ? 560 : 740, screen()->availableGeometry().height()-80));
 }
+
+void PropertiesDialog::selectPageMonitor(const QString &monitor){if(m_pages)m_pages->selectMonitor(monitor);}
 
 void PropertiesDialog::populateApplicationsList()
 {

@@ -35,6 +35,11 @@ public:
     PropertiesDialog::Settings desktopSettings() const;
     void applyDesktopSettings(const PropertiesDialog::Settings &settings, bool persist);
     bool receiveDesktopDrop(DesktopScene *source, const QStringList &keys, QPoint position);
+    QString currentPage() const { return m_pageId; }
+    QString monitorName() const { return m_screenName; }
+    bool setCurrentPage(const QString &id);
+    bool stepPage(int direction);
+    bool moveIconsToPage(DesktopScene *source,const QStringList &keys,const QString &page);
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -43,6 +48,7 @@ protected:
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
@@ -83,6 +89,16 @@ private slots:
     void updateCutIconAppearance();
 
 private:
+    void initializePages();
+    void chooseIconPage();
+    void syncCurrentPage();
+    void updatePager();
+    void finishPageAnimation();
+    bool cellReserved(int col,int row) const;
+    QString m_pageId = "main";
+    class PagePager *m_pager = nullptr;
+    QWidget *m_pageTransition = nullptr;
+    class QVariantAnimation *m_pageAnimation = nullptr;
     bool createApplicationShortcut(const QString &path);
     QString iconKey(DesktopIcon *icon) const;
     DesktopIcon *folderDropTargetAt(const QPoint &leaderCenter, DesktopIcon *leader) const;
