@@ -8,6 +8,7 @@
 #include <KFileItemActions>
 #include <KFileItemListProperties>
 #include <KService>
+#include <KDesktopFile>
 
 int main(int argc,char **argv){
     QApplication app(argc,argv);
@@ -28,6 +29,8 @@ int main(int argc,char **argv){
     {
         DolphinIntegration integration;if(!integration.activate())return 15;
         KService service(menu);if(!service.isValid()||service.actions().size()!=1)return 16;
+        if(!QFileInfo(menu).permission(QFileDevice::ExeOwner))return 26;
+        if(!KDesktopFile::isAuthorizedDesktopFile(menu))return 27;
         if(!visible())return 17;
         if(DolphinIntegration::cleanupStopped()||!QFile::exists(menu))return 18;
         integration.deactivate();if(visible()||QFile::exists(menu))return 19;

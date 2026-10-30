@@ -37,7 +37,7 @@ static int monitorCheck(bool reload) {
             if(!layoutIcon(left,"external.txt") || layoutIcon(right,"external.txt"))return 102;
             if(!layoutIcon(left,"Левая папка") || layoutIcon(right,"Левая папка"))return 103;
             if(!layoutIcon(left,"__trash__") || layoutIcon(right,"__trash__"))return 104;
-            if(!layoutIcon(right,"Fixture App.desktop") || layoutIcon(left,"Fixture App.desktop"))return 105;
+            if(!layoutIcon(left,"Fixture App.desktop") || layoutIcon(right,"Fixture App.desktop"))return 105;
             QSettings expected(path+"/../expected.ini",QSettings::IniFormat);
             if(layoutIcon(left,"external.txt")->pos()!=expected.value("position").toPoint())return 118;
             printf("PASS separate process restores per-monitor ownership and positions\n");
@@ -61,7 +61,7 @@ static int monitorCheck(bool reload) {
         });
         QMetaObject::invokeMethod(&left,"onApplicationShortcut",Qt::DirectConnection);
         QTest::qWait(650);
-        if(layoutIcon(left,"Fixture App.desktop") || !layoutIcon(right,"Fixture App.desktop"))return 110;
+        if(!layoutIcon(left,"Fixture App.desktop") || layoutIcon(right,"Fixture App.desktop"))return 110;
         if(!left.receiveDesktopDrop(&right,{"external.txt","__trash__"},QPoint(700,400)))return 111;
         QTest::qWait(650);
         if(!layoutIcon(left,"external.txt") || layoutIcon(right,"external.txt"))return 112;
@@ -95,7 +95,7 @@ static int monitorCheck(bool reload) {
         QFile f(path+"/external.txt");if(!f.open(QIODevice::ReadOnly) || f.readAll()!="preserve me\n")return 116;
         QSettings expected(path+"/../expected.ini",QSettings::IniFormat);
         expected.setValue("position",layoutIcon(left,"external.txt")->pos());expected.sync();
-        printf("PASS one copy per output, local folder, main-output app shortcut, multi-icon transfer, invalid drop, resize, file preservation\n");
+        printf("PASS one copy per output, local folder, context-output app shortcut, multi-icon transfer, invalid drop, resize, file preservation\n");
         return 0;
     }();
     QWindowSystemInterface::handleScreenRemoved(leftScreen);

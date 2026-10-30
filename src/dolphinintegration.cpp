@@ -34,6 +34,7 @@ bool DolphinIntegration::activate(){
         "Icon=emblem-symbolic-link\nExec=/usr/bin/python3 -I \""+helper+"\" -- %F\n";
     if(!QDir().mkpath(QFileInfo(path).absolutePath()))return false;
     QSaveFile file(path);if(!file.open(QIODevice::WriteOnly))return false;
+    if(!file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner))return false;
     if(file.write(content.toUtf8())!=content.toUtf8().size()||!file.commit())return false;
     m_ownedContent=content;return true;
 }

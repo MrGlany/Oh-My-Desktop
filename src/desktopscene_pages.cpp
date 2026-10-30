@@ -61,14 +61,20 @@ void DesktopScene::resizeEvent(QResizeEvent *e) {
     finishPageAnimation();QWidget::resizeEvent(e);updatePager();
 }
 bool DesktopScene::setCurrentPage(const QString &id) {
+    m_pageStepDirection=0;
     if(m_nativeDragging)return false;
     return DesktopLayout::instance()->activatePage(m_screenName,id);
 }
 bool DesktopScene::stepPage(int direction) {
     auto *layout=DesktopLayout::instance();const auto pages=layout->pages(m_screenName);
+    if(!direction||pages.isEmpty())return false;
+    if(pages.size()==1)return true;
     int index=0;for(int n=0;n<pages.size();++n)if(pages[n].id==layout->activePage(m_screenName))index=n;
-    const int next=qBound(0,index+(direction>0?1:-1),int(pages.size())-1);
-    return next==index || setCurrentPage(pages[next].id);
+    const int step=direction>0?1:-1;
+    const int next=(index+step+int(pages.size()))%int(pages.size());
+    const bool changed=setCurrentPage(pages[next].id);
+    if(changed)m_pageStepDirection=step;
+    return changed;
 }
 bool DesktopScene::moveIconsToPage(DesktopScene *source,const QStringList &keys,const QString &page) {
     if(!source||source->m_desktopPath!=m_desktopPath||keys.isEmpty())return false;
@@ -118,7 +124,8 @@ void DesktopScene::finishPageAnimation() {
 void DesktopScene::syncCurrentPage() {
     if(m_nativeDragging)return;
     auto *layout=DesktopLayout::instance();const QString next=layout->activePage(m_screenName);
-    if(next==m_pageId){updatePager();queueRefresh(0);return;}
+    if(next==m_pageId){m_pageStepDirection=0;updatePager();queueRefresh(0);return;}
+    const int stepDirection=m_pageStepDirection;m_pageStepDirection=0;
     finishPageAnimation();closeAllMenus();savePositions();
     const auto before=capturePage(m_icons);
     int oldIndex=0,newIndex=0;const auto pages=layout->pages(m_screenName);
@@ -128,7 +135,7 @@ void DesktopScene::syncCurrentPage() {
     m_pageId=next;m_positions.clear();loadPositions();refresh();updatePager();
     if(qEnvironmentVariableIsSet("OMD_NO_ANIMATIONS")||!isVisible())return;
     auto *transition=new PageTransition(this);transition->before=before;transition->after=capturePage(m_icons);
-    transition->direction=newIndex>=oldIndex?1:-1;
+    transition->direction=stepDirection?stepDirection:(newIndex>=oldIndex?1:-1);
     for(auto *icon:m_icons)icon->hide();
     m_pageTransition=transition;transition->show();transition->raise();m_pager->raise();
     auto *animation=new QVariantAnimation(this);m_pageAnimation=animation;

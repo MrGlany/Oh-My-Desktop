@@ -98,10 +98,11 @@ private:
     void finishPageAnimation();
     bool cellReserved(int col,int row) const;
     QString m_pageId = "main";
+    int m_pageStepDirection = 0;
     class PagePager *m_pager = nullptr;
     QWidget *m_pageTransition = nullptr;
     class QVariantAnimation *m_pageAnimation = nullptr;
-    bool createApplicationShortcut(const QString &path);
+    bool createApplicationShortcut(const QString &path,const QString &page=QString(),const QPoint &position=QPoint(-1,-1));
     QString iconKey(DesktopIcon *icon) const;
     DesktopIcon *folderDropTargetAt(const QPoint &leaderCenter, DesktopIcon *leader) const;
     bool moveIconIntoFolder(DesktopIcon *icon, const QFileInfo &targetFolder, QString *errorMessage);

@@ -6,6 +6,13 @@
 #include <QComboBox>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QContextMenuEvent>
+#ifdef OMD_DOLPHIN_LAUNCH_CHECK
+#include "dolphinintegration.h"
+#include <KFileItemActions>
+#include <KFileItemListProperties>
+#include <KDesktopFile>
+#endif
 
 static int carouselPreview(){
     const QString directory=qEnvironmentVariable("OMD_CAROUSEL_PREVIEW_DIR");
@@ -85,6 +92,17 @@ static int pagesCheck(bool reload) {
             sendWheel(&wheel,-120);if(wheel.selectedPage()!="main")return 242;
             sendWheel(&wheel,0,1);if(wheel.selectedPage()!="right")return 243;
             sendWheel(&wheel,0);if(wheel.selectedPage()!="right")return 244;
+            sendWheel(&wheel,120);if(wheel.selectedPage()!="left")return 262;
+            sendWheel(&wheel,-120);if(wheel.selectedPage()!="right")return 263;
+            wheel.findChild<QPushButton*>("PageNext")->click();if(wheel.selectedPage()!="left")return 264;
+            wheel.findChild<QPushButton*>("PagePrevious")->click();if(wheel.selectedPage()!="right")return 265;
+            qunsetenv("OMD_NO_ANIMATIONS");sendWheel(&wheel,120);QTest::qWait(60);
+            if(wheel.selectedPage()!="left"||wheel.screenRect(0).center().x()<=wheel.width()/2.)return 268;
+            QTest::qWait(280);
+            if(qAbs(wheel.screenRect(0).center().x()-wheel.width()/2.)>1)return 269;
+            sendWheel(&wheel,-120);QTest::qWait(60);
+            if(wheel.selectedPage()!="right"||wheel.screenRect(2).center().x()>=wheel.width()/2.)return 270;
+            QTest::qWait(280);qputenv("OMD_NO_ANIMATIONS","1");
             PagePager wheelPager;wheelPager.setPages({DesktopPage{"main","Основная"}},"main","DP-1");
             QSignalSpy steps(&wheelPager,&PagePager::stepped);
             sendWheel(&wheelPager,120);sendWheel(&wheelPager,-120);sendWheel(&wheelPager,0,1);
@@ -140,6 +158,8 @@ static int pagesCheck(bool reload) {
         QCoreApplication::sendEvent(&right,&otherBinding);QTest::qWait(35);
         if(right.currentPage()!="main")return 251;
         desktopWheel(120);if(right.currentPage()!=rightId||left.currentPage()!="main")return 246;
+        desktopWheel(120);if(right.currentPage()!=leftId||left.currentPage()!="main")return 266;
+        desktopWheel(-120);if(right.currentPage()!=rightId||left.currentPage()!="main")return 267;
         desktopWheel(-120);if(right.currentPage()!="main")return 247;
         if(!layoutIcon(right,"legacy.txt")||layoutIcon(right,"legacy.txt")->pos()!=originalPosition)return 185;
         if(!right.moveIconsToPage(&right,{"legacy.txt"},rightId))return 186;QTest::qWait(450);
@@ -153,14 +173,41 @@ static int pagesCheck(bool reload) {
         QTimer::singleShot(0,[]{auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());if(d){d->setTextValue("Local page folder");d->accept();}});
         QMetaObject::invokeMethod(&right,"onNewFolder",Qt::DirectConnection);QTest::qWait(500);
         if(!layoutIcon(right,"Local page folder")||model->entryPage("Local page folder")!=rightId)return 190;
-        // New app shortcuts still belong to primary/main, even when created elsewhere.
+        // Context creation stays on the clicked output, independent of focus.
         QFile appFile(path+"/../fixture.desktop");if(!appFile.open(QIODevice::WriteOnly))return 191;
         appFile.write("[Desktop Entry]\nType=Application\nName=Fixture App\nExec=true\nIcon=application-x-executable\n");appFile.close();
+        const QPoint click(780,450);
+        QContextMenuEvent context(QContextMenuEvent::Keyboard,click,left.mapToGlobal(click));QCoreApplication::sendEvent(&left,&context);
+        model->setFocusedScreen("DP-1");
         QTimer::singleShot(0,[&]{auto *picker=qobject_cast<PropertiesDialog*>(QApplication::activeModalWidget());if(picker){QMetaObject::invokeMethod(picker,"applicationShortcutRequested",Qt::DirectConnection,Q_ARG(QString,appFile.fileName()));picker->reject();}});
         QMetaObject::invokeMethod(&left,"onApplicationShortcut",Qt::DirectConnection);QTest::qWait(500);
-        if(model->owner("Fixture App.desktop")!="DP-1"||model->entryPage("Fixture App.desktop")!="main"||layoutIcon(right,"Fixture App.desktop"))return 192;
+        if(model->owner("Fixture App.desktop")!="HDMI-A-1"||model->entryPage("Fixture App.desktop")!="main"||layoutIcon(right,"Fixture App.desktop"))return 192;
+        if(!layoutIcon(left,"Fixture App.desktop")||(layoutIcon(left,"Fixture App.desktop")->pos()-click).manhattanLength()>160)return 271;
+        // A full properties dialog follows focus at the moment of Create.
+        QFile propsApp(path+"/../properties-fixture.desktop");if(!propsApp.open(QIODevice::WriteOnly))return 272;
+        propsApp.write("[Desktop Entry]\nType=Application\nName=Properties Fixture\nExec=true\nIcon=application-x-executable\n");propsApp.close();
+        model->setFocusedScreen("HDMI-A-1");
+        QTimer::singleShot(0,[&]{
+            model->setFocusedScreen("DP-1");
+            auto *dialog=qobject_cast<PropertiesDialog*>(QApplication::activeModalWidget());
+            if(dialog){QMetaObject::invokeMethod(dialog,"applicationShortcutRequested",Qt::DirectConnection,Q_ARG(QString,propsApp.fileName()));dialog->reject();}
+        });
+        QMetaObject::invokeMethod(&left,"onShowProperties",Qt::DirectConnection);QTest::qWait(500);
+        if(model->owner("Properties Fixture.desktop")!="DP-1"||model->entryPage("Properties Fixture.desktop")!=rightId||!layoutIcon(right,"Properties Fixture.desktop")||layoutIcon(left,"Properties Fixture.desktop"))return 273;
         auto sets=model->pageSets();sets["HDMI-A-1"].append(DesktopPage{"left-extra","Левая страница"});if(!model->replacePages(sets))return 193;
         if(!left.setCurrentPage("left-extra"))return 194;QTest::qWait(500);
+        QFile pinnedApp(path+"/../pinned-fixture.desktop");if(!pinnedApp.open(QIODevice::WriteOnly))return 274;
+        pinnedApp.write("[Desktop Entry]\nType=Application\nName=Pinned Context\nExec=true\nIcon=application-x-executable\n");pinnedApp.close();
+        const QPoint pinnedPoint(1280,720);
+        QContextMenuEvent pinnedMenu(QContextMenuEvent::Keyboard,pinnedPoint,left.mapToGlobal(pinnedPoint));QCoreApplication::sendEvent(&left,&pinnedMenu);
+        QTimer::singleShot(0,[&]{
+            left.setCurrentPage("main");
+            QTimer::singleShot(150,[&]{auto *picker=qobject_cast<PropertiesDialog*>(QApplication::activeModalWidget());if(picker){QMetaObject::invokeMethod(picker,"applicationShortcutRequested",Qt::DirectConnection,Q_ARG(QString,pinnedApp.fileName()));picker->reject();}});
+        });
+        QMetaObject::invokeMethod(&left,"onApplicationShortcut",Qt::DirectConnection);QTest::qWait(500);
+        if(left.currentPage()!="main"||model->owner("Pinned Context.desktop")!="HDMI-A-1"||model->entryPage("Pinned Context.desktop")!="left-extra"||layoutIcon(left,"Pinned Context.desktop"))return 275;
+        if(!left.setCurrentPage("left-extra"))return 276;QTest::qWait(500);
+        if(!layoutIcon(left,"Pinned Context.desktop")||(layoutIcon(left,"Pinned Context.desktop")->pos()-pinnedPoint).manhattanLength()>160)return 277;
         if(!left.receiveDesktopDrop(&right,{"legacy.txt"},QPoint(800,400)))return 195;QTest::qWait(500);
         if(!layoutIcon(left,"legacy.txt")||layoutIcon(right,"legacy.txt")||model->entryPage("legacy.txt")!="left-extra")return 196;
         if(!right.moveIconsToPage(&left,{"legacy.txt"},leftId))return 197;QTest::qWait(500);
@@ -185,7 +232,7 @@ static int pagesCheck(bool reload) {
         qputenv("OMD_NO_ANIMATIONS","1");
         if(qAlpha(right.grab().toImage().pixel(1800,800))!=0)return 223;
         QTemporaryDir socketDir("/tmp/omd-pages-check-XXXXXX");if(!socketDir.isValid())return 214;
-        qputenv("OMD_CONTROL_SOCKET",QFile::encodeName(socketDir.path()+"/pages.sock"));
+        if(!qEnvironmentVariableIsSet("OMD_CONTROL_SOCKET"))qputenv("OMD_CONTROL_SOCKET",QFile::encodeName(socketDir.path()+"/pages.sock"));
         PageControl control;if(!control.listen())return 214;
         {PageControl duplicate;if(duplicate.listen())return 215;}
         auto client=[&](const QString &command,const QString &monitor)->bool {
@@ -218,6 +265,26 @@ static int pagesCheck(bool reload) {
         if(!layoutIcon(left,linkName)||layoutIcon(right,linkName))return 258;
         if(right.placeDesktopLinks({"../dolphin-origin"},"main")||right.placeDesktopLinks({"legacy.txt"},"main")||right.placeDesktopLinks({linkName},"not-present"))return 259;
         if(!data.open(QIODevice::ReadOnly)||data.readAll()!="original folder data\n")return 260;data.close();
+#ifdef OMD_DOLPHIN_LAUNCH_CHECK
+        // Execute the real KDE action as Dolphin does, not only its Python helper.
+        // CTest uses a private D-Bus session, so test notifications stay isolated.
+        DolphinIntegration integration;if(!integration.activate())return 270;
+        if(!KDesktopFile::isAuthorizedDesktopFile(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)+"/kio/servicemenus/oh-my-desktop-link.desktop"))return 271;
+        KFileItemList items;items<<KFileItem(QUrl::fromLocalFile(origin));
+        KFileItemActions builder;builder.setItemListProperties(KFileItemListProperties(items));
+        QAction *desktopAction=nullptr;
+        const auto serviceActions=builder.createServiceMenuActions();
+        for(auto *action:serviceActions)if(action->text()==QString::fromUtf8("Создать ярлык на рабочем столе"))desktopAction=action;
+        if(!desktopAction)return 272;
+        desktopAction->trigger();
+        const QString secondLink="dolphin-origin — ярлык (2)";
+        for(int wait=0;wait<100 && (!QFileInfo(path+"/"+secondLink).isSymLink()||model->entryPage(secondLink)!="left-extra"||!layoutIcon(left,secondLink));++wait)QTest::qWait(50);
+        if(!QFileInfo(path+"/"+secondLink).isSymLink()||model->owner(secondLink)!="HDMI-A-1"||model->entryPage(secondLink)!="left-extra"){fprintf(stderr,"KDE action result: %s; owner=%s page=%s\n",qPrintable(QDir(path).entryList().join(" | ")),qPrintable(model->owner(secondLink)),qPrintable(model->entryPage(secondLink)));return 273;}
+        if(!layoutIcon(left,secondLink)||layoutIcon(right,secondLink))return 274;
+        if(!data.open(QIODevice::ReadOnly)||data.readAll()!="original folder data\n")return 275;data.close();
+        integration.deactivate();
+        qInfo("PASS actual KDE service-menu action launches and places a link on the active monitor/page");
+#endif
         if(!left.setCurrentPage("main"))return 261;model->setFocusedScreen("DP-1");QTest::qWait(300);
         auto *pager=right.findChild<PagePager*>();if(!pager||!pager->isVisible()||pager->geometry().center().x()<850)return 211;
         for(auto *i:right.findChildren<DesktopIcon*>())if(!i->isHidden()&&i->geometry().intersects(pager->geometry()))return 212;
@@ -225,7 +292,7 @@ static int pagesCheck(bool reload) {
         pager->grab().save(path+"/../page-pager.png");
         expected.setValue("active",leftId);expected.setValue("position",layoutIcon(right,"legacy.txt")->pos());expected.sync();
         QFile original(path+"/legacy.txt");if(!original.open(QIODevice::ReadOnly)||original.readAll()!="user bytes preserved\n"||!QFileInfo(path+"/offline-link").isSymLink())return 213;
-        qInfo("PASS legacy migration, draft cancel, protected main, insert/reorder/rename, per-monitor pages, page-local creation, primary-main shortcut, cross-monitor transfer, no duplicate icons, deletion recovery, animation completion, reserved pager and original bytes");
+        qInfo("PASS context app shortcut at click, pinned page during picker, properties app shortcut on focused monitor/active page, per-monitor persistence and original bytes");
         return 0;
     }();
     QWindowSystemInterface::handleScreenRemoved(l);QWindowSystemInterface::handleScreenRemoved(r);return result;

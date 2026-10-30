@@ -12,10 +12,13 @@ def main():
         root = Path(directory)
         env = dict(os.environ, QT_QPA_PLATFORM="offscreen", OMD_NO_ANIMATIONS="1",
                    XDG_CONFIG_HOME=str(root/"config"), XDG_DATA_HOME=str(root/"data"),
-                   XDG_STATE_HOME=str(root/"state"), OMD_DESKTOP_DIR=str(root/"pages-check-desktop"))
+                   XDG_STATE_HOME=str(root/"state"), OMD_CONTROL_SOCKET=str(root/"pages.sock"), OMD_DESKTOP_DIR=str(root/"pages-check-desktop"))
         env.pop("HYPRLAND_INSTANCE_SIGNATURE", None)
         for flag in ("--pages-check", "--pages-check-reload"):
-            result = subprocess.run([binary, flag], env=env, timeout=60)
+            command = [binary, flag]
+            if "--private-dbus" in sys.argv:
+                command = ["/usr/bin/dbus-run-session", "--"] + command
+            result = subprocess.run(command, env=env, timeout=60)
             print(flag, "exit", result.returncode, flush=True)
             if result.returncode:
                 return result.returncode

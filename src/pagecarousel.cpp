@@ -63,10 +63,14 @@ void PageCarousel::setPages(const QList<DesktopPage> &pages,const QString &selec
     positionControls();update();emit currentChanged(m_current);
 }
 void PageCarousel::setCurrentIndex(int index) {
-    if(index<0||index>=m_pages.size()||index==m_current)return;
+    const int count=m_pages.size();if(!count)return;
+    const bool wrapped=index<0||index>=count;
+    const int requested=index;index=(index%count+count)%count;
+    if(index==m_current)return;
     m_slide.stop();m_current=index;
     emit currentChanged(index);
     if(qEnvironmentVariableIsSet("OMD_NO_ANIMATIONS")){m_visual=index;positionControls();update();return;}
+    if(wrapped)m_visual=index+(requested>=count?-1:1);
     m_slide.setStartValue(m_visual);m_slide.setEndValue(qreal(index));m_slide.start();
     positionControls();update();
 }
@@ -84,11 +88,12 @@ void PageCarousel::positionControls() {
     if(m_pages.isEmpty())return;
     auto addRect=[this](int index){const QRectF r=screenRect(index);const qreal w=qMin(qreal(128),width()*.26);return QRectF(r.center().x()-w/2,r.center().y()-54,w,108).toAlignedRect();};
     m_addLeft->setGeometry(addRect(-1));m_addRight->setGeometry(addRect(m_pages.size()));
-    m_addLeft->setVisible(m_current==0);m_addRight->setVisible(m_current==m_pages.size()-1);
+    const bool wrapping=m_visual<-.001||m_visual>m_pages.size()-1+.001;
+    m_addLeft->setVisible(m_current==0&&!wrapping);m_addRight->setVisible(m_current==m_pages.size()-1&&!wrapping);
     m_addLeft->setEnabled(m_pages.size()<64);m_addRight->setEnabled(m_pages.size()<64);
     const int y=height()-34;
     m_previous->setGeometry(10,y,34,30);m_next->setGeometry(width()-44,y,34,30);
-    m_previous->setEnabled(m_current>0);m_next->setEnabled(m_current+1<m_pages.size());
+    m_previous->setEnabled(m_pages.size()>1);m_next->setEnabled(m_pages.size()>1);
     m_home->setGeometry(width()/2.-62,y,124,30);
     m_home->setEnabled(selectedPage()!="main");m_home->setText(selectedPage()=="main"?"Основная":"К основной");
 }

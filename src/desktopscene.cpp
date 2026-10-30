@@ -1959,7 +1959,17 @@ void DesktopScene::onShowProperties()
         applyFont(m_fontFamily, size);
     });
     connect(&dlg, &PropertiesDialog::applicationShortcutRequested, this,
-            [this](const QString &path) { createApplicationShortcut(path); });
+            [this,&dlg](const QString &path) {
+                auto *layout=DesktopLayout::instance();
+                const QString monitor=layout->focusedScreen();
+                for(auto *widget:QApplication::allWidgets()){
+                    auto *target=qobject_cast<DesktopScene*>(widget);
+                    if(target&&target->m_screen&&target->m_screenName==monitor&&target->m_desktopPath==m_desktopPath){
+                        target->createApplicationShortcut(path,layout->activePage(monitor));return;
+                    }
+                }
+                QMessageBox::warning(&dlg,"Ярлык приложения","Активный экран недоступен. Выберите другой экран и попробуйте снова.");
+            });
 
     auto commit = [&] {
         const auto settings = dlg.currentSettings();
@@ -2015,8 +2025,15 @@ void DesktopScene::applyDesktopSettings(const PropertiesDialog::Settings &ns, bo
     if (persist) savePositions();
 }
 
-bool DesktopScene::createApplicationShortcut(const QString &desktopFilePath)
+bool DesktopScene::createApplicationShortcut(const QString &desktopFilePath,const QString &page,const QPoint &position)
 {
+        auto *layout=DesktopLayout::instance();
+        const QString targetPage=page.isEmpty()?layout->activePage(m_screenName):page;
+        bool pageExists=false;for(const auto &p:layout->pages(m_screenName))if(p.id==targetPage)pageExists=true;
+        if(!m_screen||!pageExists){
+            QMessageBox::warning(this,"Ярлык приложения","Экран или страница больше недоступны. Ярлык не создан.");return false;
+        }
+        if(layout->activePage(m_screenName)==targetPage&&m_pageId!=targetPage)syncCurrentPage();
         QFile sourceFile(desktopFilePath);
         if (!sourceFile.exists()) {
             QMessageBox::warning(this, "Ярлык приложения",
@@ -2043,18 +2060,33 @@ bool DesktopScene::createApplicationShortcut(const QString &desktopFilePath)
         QFile targetFile(targetPath);
         targetFile.setPermissions(targetFile.permissions()
             | QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
-        if (!DesktopLayout::instance()->assign({targetName}, DesktopLayout::instance()->primaryScreen()))
+        if (!layout->assign({targetName},m_screenName,targetPage))
             QMessageBox::warning(this, "Ярлык приложения", "Ярлык создан, но не удалось сохранить его расположение.");
+        if(!m_autoArrange&&position.x()>=0&&position.y()>=0){
+            if(m_pageId==targetPage){
+                const auto cell=nearestFreeCell(posToCell(position),QString());
+                m_positions[targetName]=cellToPos(cell.first,cell.second);savePositions();
+            }else{
+                // The picker can outlive a page switch. Keep its original page
+                // and click location without changing what is currently shown.
+                const auto cell=posToCell(position);
+                QSettings settings(configPath(),QSettings::IniFormat);
+                settings.beginGroup(targetPage=="main"?"positions":"pages/"+targetPage+"/positions");
+                settings.setValue(targetName,cellToPos(cell.first,cell.second));settings.sync();
+            }
+        }
         queueRefresh(kCreateShortcutRefreshMs);
     return true;
 }
 
 void DesktopScene::onApplicationShortcut()
 {
+    const QString page=m_pageId;const QPoint position=m_lastContextMenuPos;
     PropertiesDialog picker(desktopSettings(), nullptr, true);
+    connect(this,&QObject::destroyed,&picker,&QDialog::reject);
     connect(&picker, &PropertiesDialog::applicationShortcutRequested, this,
-        [this, &picker](const QString &path) {
-            if (createApplicationShortcut(path)) picker.accept();
+        [this, &picker,page,position](const QString &path) {
+            if (createApplicationShortcut(path,page,position)) picker.accept();
         });
     picker.exec();
 }
