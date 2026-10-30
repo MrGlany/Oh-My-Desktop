@@ -36,6 +36,7 @@ set(SOURCES
 )
 
 set(HEADERS
+    src/desktoptextdialog.h
     src/desktoplayout.h
     src/desktopwindow.h
     src/desktopscene.h
@@ -121,6 +122,10 @@ if(OMD_BUILD_PROPERTIES_CHECK)
     add_executable(properties-check tests/properties_check.cpp ${PROPERTIES_SOURCES} ${HEADERS} ${RESOURCES})
     target_include_directories(properties-check PRIVATE src)
     target_link_libraries(properties-check PRIVATE Qt6::Widgets Qt6::Network Qt6::GuiPrivate Qt6::Test LayerShellQt::Interface)
+    add_test(NAME text_input_focus COMMAND ${CMAKE_COMMAND} -E env
+        QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic
+        XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/properties-check-focus-config
+        $<TARGET_FILE:properties-check> --text-input-focus-check)
     if(OMD_BUILD_DOLPHIN_CHECK)
         target_compile_definitions(properties-check PRIVATE OMD_DOLPHIN_LAUNCH_CHECK)
         target_link_libraries(properties-check PRIVATE KF6::KIOWidgets KF6::Service)

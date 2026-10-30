@@ -2,6 +2,7 @@
 #include "desktopscene.h"
 #include "desktopicon.h"
 #include "trashmonitor.h"
+#include "desktoptextdialog.h"
 #include <QTemporaryDir>
 #include <QSignalSpy>
 #include <QListWidget>
@@ -54,6 +55,20 @@ static bool computerIcon(DesktopScene &scene) {
 int main(int argc,char **argv) {
     QApplication app(argc,argv);
     if(!qEnvironmentVariable("XDG_CONFIG_HOME").contains("properties-check"))return 10;
+    if(app.arguments().contains("--text-input-focus-check")) {
+        QWidget owner;bool focused=false,ok=false;
+        QTimer::singleShot(600,[&]{
+            auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
+            auto *edit=d?d->findChild<QLineEdit*>():nullptr;
+            focused=d&&d->parentWidget()==nullptr&&d->isActiveWindow()&&edit&&edit->hasFocus()&&edit->selectedText()=="Old name";
+            if(!focused){if(d)d->reject();return;}
+            QTest::keyClicks(QApplication::focusWidget(),"New name");
+            QTest::keyClick(QApplication::focusWidget(),Qt::Key_Return);
+        });
+        const QString result=DesktopDialogs::getText(&owner,app.primaryScreen(),"Проверка фокуса переименования","Имя:","Old name",&ok);
+        if(!focused||!ok||result!="New name")return 90;
+        puts("PASS dialog active, text focused and selected, keyboard replacement and Enter without mouse");return 0;
+    }
     if (app.arguments().contains("--icons-preview")) {
         QIcon::setThemeSearchPaths({"/usr/share/icons"});
         QIcon::setFallbackSearchPaths({"/usr/share/pixmaps"});

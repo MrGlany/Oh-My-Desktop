@@ -47,10 +47,21 @@ static int monitorCheck(bool reload) {
         if(layoutIcon(left,"__trash__") || !layoutIcon(right,"__trash__"))return 107;
         QTimer::singleShot(0, []{
             auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
-            if(d){d->setTextValue("Левая папка");d->accept();}
+            if(d){d->setTextValue("До переименования");d->accept();}
         });
         QMetaObject::invokeMethod(&left,"onNewFolder",Qt::DirectConnection);
         QTest::qWait(650);
+        auto *renameIcon=layoutIcon(left,"До переименования");if(!renameIcon)return 132;
+        bool renameFocused=false;
+        QTimer::singleShot(150,[&]{
+            auto *d=qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
+            auto *edit=d?d->findChild<QLineEdit*>():nullptr;
+            renameFocused=edit&&edit->hasFocus()&&edit->selectedText()=="До переименования";
+            if(!renameFocused){if(d)d->reject();return;}
+            edit->insert("Левая папка");d->accept();
+        });
+        QMetaObject::invokeMethod(&left,"onRenameRequested",Qt::DirectConnection,Q_ARG(DesktopIcon*,renameIcon));QTest::qWait(650);
+        if(!renameFocused||QFileInfo::exists(path+"/До переименования")||!layoutIcon(left,"Левая папка")||layoutIcon(right,"Левая папка"))return 133;
         if(!layoutIcon(left,"Левая папка") || layoutIcon(right,"Левая папка"))return 108;
         QFile appFile(path+"/../fixture.desktop");
         if(!appFile.open(QIODevice::WriteOnly))return 109;

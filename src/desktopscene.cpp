@@ -24,6 +24,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QInputDialog>
+#include "desktoptextdialog.h"
 #include <QMessageBox>
 #include <QMimeData>
 #include <QScreen>
@@ -868,8 +869,8 @@ void DesktopScene::onRenameRequested(DesktopIcon *icon)
     // Block the file watcher while the rename dialog is open.
     const bool wasWatching = m_watcher->blockSignals(true);
 
-    const QString newName = QInputDialog::getText(
-        this, "Переименование", "Новое имя:", QLineEdit::Normal, renameSeed, &ok
+    const QString newName = DesktopDialogs::getText(
+        this, m_screen, "Переименование", "Новое имя:", renameSeed, &ok
     );
 
     // Restore watcher and manually trigger a refresh to pick up the rename.
@@ -1486,9 +1487,8 @@ void DesktopScene::onNewFolder()
     }
 
     bool ok = false;
-    const QString name = QInputDialog::getText(
-        this, "Новая папка", "Имя папки:",
-        QLineEdit::Normal, suggested, &ok);
+    const QString name = DesktopDialogs::getText(
+        this, m_screen, "Новая папка", "Имя папки:", suggested, &ok);
     if (!ok || name.trimmed().isEmpty()) return;
 
     const QString trimmed = name.trimmed();
@@ -1529,9 +1529,8 @@ void DesktopScene::onNewDocument()
     }
 
     bool ok = false;
-    const QString name = QInputDialog::getText(
-        this, "Новый документ", "Имя документа:",
-        QLineEdit::Normal, baseName, &ok);
+    const QString name = DesktopDialogs::getText(
+        this, m_screen, "Новый документ", "Имя документа:", baseName, &ok);
     if (!ok || name.trimmed().isEmpty()) return;
 
     QString trimmed = name.trimmed();
