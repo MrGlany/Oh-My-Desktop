@@ -3,7 +3,6 @@
 import json
 import os
 import socket
-import subprocess
 import sys
 from pathlib import Path
 
@@ -41,13 +40,14 @@ def main():
         if len(sys.argv)>2:
             monitor = sys.argv[2]
         else:
-            monitors = json.loads(subprocess.check_output(["/usr/bin/hyprctl","monitors","-j"],text=True,timeout=2))
-            monitor = next(m["name"] for m in monitors if m.get("focused"))
+            # The running desktop tracks focus through its existing IPC stream.
+            # No extra compositor subprocess is needed on each wheel click.
+            monitor = ""
         result = request(command,monitor)
         if command == "status":
             print(json.dumps(result,ensure_ascii=False))
         return 0
-    except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, KeyError) as error:
         print("Страницы рабочего стола: "+str(error),file=sys.stderr)
         return 1
 

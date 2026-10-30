@@ -18,6 +18,8 @@ public:
     static DesktopLayout *instance();
     static QString screenName(const class QScreen *screen);
     QString primaryScreen() const;
+    QString focusedScreen() const;
+    void setFocusedScreen(const QString &screen);
     QString owner(const QString &key) const;
     bool assign(const QStringList &keys, const QString &screen, const QString &page = "main");
     QList<DesktopPage> pages(const QString &screen) const;
@@ -38,4 +40,5 @@ private:
     QHash<QString, QString> m_activePages;
     DesktopPageSets m_pages;
     QString m_path;
+    QString m_focusedScreen;
 };

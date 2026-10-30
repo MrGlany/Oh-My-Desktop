@@ -1,4 +1,5 @@
 #include "pagepager.h"
+#include "wheelutil.h"
 #include "themeutil.h"
 #include <QPainter>
 #include <QMouseEvent>
@@ -68,7 +69,7 @@ void PagePager::mousePressEvent(QMouseEvent *e) {
     e->accept();
 }
 void PagePager::mouseMoveEvent(QMouseEvent *e) {m_hover=indexAt(e->position().toPoint());update();}
-void PagePager::wheelEvent(QWheelEvent *e) {if(e->angleDelta().y())emit stepped(e->angleDelta().y()>0?-1:1);e->accept();}
+void PagePager::wheelEvent(QWheelEvent *e) {const int step=desktopWheelStep(e);if(step)emit stepped(step);e->accept();}
 void PagePager::keyPressEvent(QKeyEvent *e) {
     if(e->key()==Qt::Key_Left)emit stepped(-1);else if(e->key()==Qt::Key_Right)emit stepped(1);else {QWidget::keyPressEvent(e);return;}e->accept();
 }

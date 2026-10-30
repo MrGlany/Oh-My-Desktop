@@ -24,9 +24,11 @@ PageControl::PageControl(QObject *parent):QObject(parent) {
                 const auto request=QJsonDocument::fromJson(socket->readLine()).object();
                 QJsonObject response{{"ok",false}};
                 const QString command=request.value("command").toString();
+                const QString monitor=request.value("monitor").toString().isEmpty()
+                    ? DesktopLayout::instance()->focusedScreen() : request.value("monitor").toString();
                 for(auto *widget:QApplication::allWidgets()) {
                     auto *scene=qobject_cast<DesktopScene*>(widget);
-                    if(!scene||scene->monitorName()!=request.value("monitor").toString())continue;
+                    if(!scene||scene->monitorName()!=monitor)continue;
                     if(command=="step") {
                         const int direction=request.value("direction").toInt();
                         if(direction==1||direction==-1)response["ok"]=scene->stepPage(direction);

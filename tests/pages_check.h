@@ -73,6 +73,23 @@ static int pagesCheck(bool reload) {
                 }
             }
             bounds.hide();
+            PageCarousel wheel;
+            wheel.setPages({DesktopPage{"left","Левая"},DesktopPage{"main","Основная"},DesktopPage{"right","Правая"}},"main","main");
+            wheel.resize(480,270);wheel.show();
+            auto sendWheel=[](QWidget *widget,int angle,int pixels=0,Qt::KeyboardModifiers mods=Qt::NoModifier){
+                const QPointF point(widget->rect().center());
+                QWheelEvent event(point,point,QPoint(0,pixels),QPoint(0,angle),Qt::NoButton,mods,Qt::NoScrollPhase,false);
+                QCoreApplication::sendEvent(widget,&event);
+            };
+            sendWheel(&wheel,120);if(wheel.selectedPage()!="right")return 241;
+            sendWheel(&wheel,-120);if(wheel.selectedPage()!="main")return 242;
+            sendWheel(&wheel,0,1);if(wheel.selectedPage()!="right")return 243;
+            sendWheel(&wheel,0);if(wheel.selectedPage()!="right")return 244;
+            PagePager wheelPager;wheelPager.setPages({DesktopPage{"main","Основная"}},"main","DP-1");
+            QSignalSpy steps(&wheelPager,&PagePager::stepped);
+            sendWheel(&wheelPager,120);sendWheel(&wheelPager,-120);sendWheel(&wheelPager,0,1);
+            if(steps.count()!=3||steps[0][0].toInt()!=1||steps[1][0].toInt()!=-1||steps[2][0].toInt()!=1)return 245;
+            wheel.hide();
             PageSettings visual;visual.selectMonitor("DP-1");visual.resize(480,500);visual.show();QTest::qWait(50);
             auto *carousel=visual.findChild<PageCarousel*>("PageCarousel");
             auto *addLeft=visual.findChild<QPushButton*>("PageAddLeft");
@@ -115,6 +132,15 @@ static int pagesCheck(bool reload) {
         editor.findChild<QPushButton*>("PageMoveLeft")->click();editor.findChild<QPushButton*>("PageMoveRight")->click();
         if(!editor.commit())return 183;QTest::qWait(500);
         if(model->pages("DP-1").size()!=3||model->pages("DP-1")[0].id!=leftId||model->pages("DP-1")[2].id!=rightId||model->pages("DP-1")[2].name!="Работа")return 184;
+        auto desktopWheel=[&](int delta){
+            QWheelEvent event(QPointF(500,500),QPointF(500,500),QPoint(),QPoint(0,delta),Qt::NoButton,Qt::MetaModifier|Qt::ShiftModifier,Qt::NoScrollPhase,false);
+            QCoreApplication::sendEvent(&right,&event);QTest::qWait(35);
+        };
+        QWheelEvent otherBinding(QPointF(500,500),QPointF(500,500),QPoint(),QPoint(0,120),Qt::NoButton,Qt::MetaModifier|Qt::AltModifier|Qt::ShiftModifier,Qt::NoScrollPhase,false);
+        QCoreApplication::sendEvent(&right,&otherBinding);QTest::qWait(35);
+        if(right.currentPage()!="main")return 251;
+        desktopWheel(120);if(right.currentPage()!=rightId||left.currentPage()!="main")return 246;
+        desktopWheel(-120);if(right.currentPage()!="main")return 247;
         if(!layoutIcon(right,"legacy.txt")||layoutIcon(right,"legacy.txt")->pos()!=originalPosition)return 185;
         if(!right.moveIconsToPage(&right,{"legacy.txt"},rightId))return 186;QTest::qWait(450);
         if(layoutIcon(right,"legacy.txt"))return 187;
@@ -174,6 +200,9 @@ static int pagesCheck(bool reload) {
         if(right.currentPage()!=leftId||left.currentPage()!="main")return 219;
         if(client("next","not-a-monitor")||client("bad-command","DP-1"))return 220;
         if(!client("status","HDMI-A-1"))return 221;
+        model->setFocusedScreen("HDMI-A-1");if(!client("status",""))return 248;
+        model->setFocusedScreen("not-connected");if(model->focusedScreen()!="HDMI-A-1")return 249;
+        model->setFocusedScreen("DP-1");if(!client("status",""))return 250;
         auto *pager=right.findChild<PagePager*>();if(!pager||!pager->isVisible()||pager->geometry().center().x()<850)return 211;
         for(auto *i:right.findChildren<DesktopIcon*>())if(!i->isHidden()&&i->geometry().intersects(pager->geometry()))return 212;
         PropertiesDialog preview(right.desktopSettings());preview.selectPageMonitor("DP-1");preview.findChild<QTabWidget*>()->setCurrentIndex(2);preview.show();QTest::qWait(100);preview.grab().save(path+"/../pages-settings.png");preview.reject();

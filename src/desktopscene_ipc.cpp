@@ -1,5 +1,6 @@
 #include "desktopscene.h"
 #include "desktopicon.h"
+#include "desktoplayout.h"
 #include "desktopconstants.h"
 
 #include <QGuiApplication>
@@ -88,6 +89,7 @@ void DesktopScene::setupHyprlandIPC()
                 for (auto *icon : m_icons)
                     icon->setSelected(false);
             } else if (line.startsWith("focusedmon>>")) {
+                DesktopLayout::instance()->setFocusedScreen(QString::fromLocal8Bit(line.mid(12).split(',').first()));
                 closeAllMenus();
                 for (auto *icon : m_icons)
                     icon->setSelected(false);

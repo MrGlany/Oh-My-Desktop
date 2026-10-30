@@ -66,6 +66,13 @@ QString DesktopLayout::owner(const QString &key) const {
         if (screenName(screen) == saved) return saved;
     return primaryScreen();
 }
+QString DesktopLayout::focusedScreen() const {
+    for(auto *screen:QGuiApplication::screens())if(screenName(screen)==m_focusedScreen)return m_focusedScreen;
+    return primaryScreen();
+}
+void DesktopLayout::setFocusedScreen(const QString &screen) {
+    for(auto *s:QGuiApplication::screens())if(screenName(s)==screen){m_focusedScreen=screen;return;}
+}
 bool DesktopLayout::assign(const QStringList &keys, const QString &screen, const QString &page) {
     bool valid=false; for (const auto &p:pages(screen)) if (p.id==page) valid=true;
     if (!valid || screen.isEmpty()) return false;

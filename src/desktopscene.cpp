@@ -1,4 +1,5 @@
 #include "desktopscene.h"
+#include "wheelutil.h"
 #include "desktoplayout.h"
 #include "desktopicon.h"
 #include "launcherutil.h"
@@ -102,6 +103,7 @@ DesktopScene::DesktopScene(QScreen *screen, QWidget *parent)
                 const QRect full = m_screen ? m_screen->geometry() : QRect();
                 for (const QJsonValue &v : mons) {
                     const QJsonObject m = v.toObject();
+                    if(m["focused"].toBool())DesktopLayout::instance()->setFocusedScreen(m["name"].toString());
                     if (m["x"].toInt() == full.x() && m["y"].toInt() == full.y()
                         && m["width"].toInt() == full.width()
                         && m["height"].toInt() == full.height()) {
@@ -1183,8 +1185,9 @@ void DesktopScene::leaveEvent(QEvent *event)
 
 void DesktopScene::wheelEvent(QWheelEvent *event)
 {
-    if(event->modifiers().testFlag(Qt::MetaModifier) && event->modifiers().testFlag(Qt::ShiftModifier)) {
-        if(event->angleDelta().y())stepPage(event->angleDelta().y()>0?-1:1);
+    if(event->modifiers().testFlag(Qt::MetaModifier) && event->modifiers().testFlag(Qt::ShiftModifier) &&
+       !event->modifiers().testFlag(Qt::AltModifier) && !event->modifiers().testFlag(Qt::ControlModifier)) {
+        const int step=desktopWheelStep(event);if(step)stepPage(step);
         event->accept();return;
     }
     if (event->modifiers() & Qt::ControlModifier) {

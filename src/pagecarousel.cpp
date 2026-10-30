@@ -1,4 +1,5 @@
 #include "pagecarousel.h"
+#include "wheelutil.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QPushButton>
@@ -152,6 +153,6 @@ void PageCarousel::mouseReleaseEvent(QMouseEvent *e) {
     e->accept();
 }
 void PageCarousel::mouseMoveEvent(QMouseEvent *e){setCursor(m_pressed?Qt::ClosedHandCursor:Qt::PointingHandCursor);QWidget::mouseMoveEvent(e);}
-void PageCarousel::wheelEvent(QWheelEvent *e){if(e->angleDelta().y())setCurrentIndex(m_current+(e->angleDelta().y()>0?-1:1));e->accept();}
+void PageCarousel::wheelEvent(QWheelEvent *e){const int step=desktopWheelStep(e);if(step)setCurrentIndex(m_current+step);e->accept();}
 void PageCarousel::keyPressEvent(QKeyEvent *e){if(e->key()==Qt::Key_Left)setCurrentIndex(m_current-1);else if(e->key()==Qt::Key_Right)setCurrentIndex(m_current+1);else if(e->key()==Qt::Key_Home){for(int n=0;n<m_pages.size();++n)if(m_pages[n].id=="main")setCurrentIndex(n);}else{QWidget::keyPressEvent(e);return;}e->accept();}
 void PageCarousel::resizeEvent(QResizeEvent *e){QWidget::resizeEvent(e);positionControls();}
