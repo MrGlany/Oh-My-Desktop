@@ -315,6 +315,7 @@ void InlineMenu::paintEvent(QPaintEvent *) {
     p.setBrush(colors.window());
     p.drawRoundedRect(QRectF(rect()).adjusted(.5,.5,-.5,-.5), 14, 14);
     auto iconName = [](const QString &label) -> QString {
+        if (label == "Открыть расположение") return "folder-open";
         if (label.contains("Terminal")) return "utilities-terminal";
         if (label == "Ярлык приложения…") return "application-x-executable";
         if (label.contains("Folder")) return "folder-new";

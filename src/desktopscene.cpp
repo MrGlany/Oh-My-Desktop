@@ -25,6 +25,8 @@
 #include <QClipboard>
 #include <QInputDialog>
 #include "desktoptextdialog.h"
+#include "desktopapplaunch.h"
+#include "applicationicons.h"
 #include <QMessageBox>
 #include <QMimeData>
 #include <QScreen>
@@ -689,6 +691,15 @@ void DesktopScene::refresh()
 
 // onIconMoved, desktopscene_dragdrop.cpp
 
+static void nativeLaunchWarning(QWidget *owner,const QString &text,const QString &title=QStringLiteral("Запуск приложения"))
+{
+    DesktopDialogs::DesktopKeyboardPause pause;
+    QMessageBox box(QMessageBox::Warning,title,text,QMessageBox::Ok);
+    if(owner){box.setScreen(owner->screen());QObject::connect(owner,&QObject::destroyed,&box,&QDialog::reject);}
+    QTimer::singleShot(0,&box,[&box]{box.raise();box.activateWindow();if(box.windowHandle())box.windowHandle()->requestActivate();});
+    box.exec();
+}
+
 void DesktopScene::onOpenRequested(const QFileInfo &fileInfo)
 {
     const QString path = fileInfo.absoluteFilePath();
@@ -714,8 +725,12 @@ void DesktopScene::onOpenRequested(const QFileInfo &fileInfo)
             if (started && proc->exitStatus() == QProcess::NormalExit && proc->exitCode() == 0 &&
                 !target.isEmpty() && QFileInfo(path).isSymLink() &&
                 QFileInfo(path).symLinkTarget() == target && QFileInfo(target).exists()) {
-                LauncherUtil::startDetachedWindowedProgram(QFileInfo(target).isDir() ? "dolphin" : "xdg-open", {target});
-                if (scene) for (auto *icon : scene->m_icons) icon->refreshLinkState();
+                if(scene){
+                    for(auto *icon:scene->m_icons)icon->refreshLinkState();
+                    // Reuse normal dispatch after mounting: binaries, launchers,
+                    // folders and documents keep their own opening behaviour.
+                    scene->onOpenRequested(QFileInfo(path));
+                }
             } else if (scene) {
                 QString error = result.value("error").toString();
                 if (error.isEmpty()) error = "Не удалось открыть ярлык. Подключите диск в Dolphin и попробуйте снова.";
@@ -732,6 +747,19 @@ void DesktopScene::onOpenRequested(const QFileInfo &fileInfo)
     }
     if (fresh.isDir()) {
         LauncherUtil::startDetachedWindowedProgram("dolphin", {path});
+        return;
+    }
+
+    if(fresh.suffix().compare("desktop",Qt::CaseInsensitive)==0){
+        DesktopAppLauncher::open(path,this);return;
+    }
+
+    const QString native=LauncherUtil::nativeExecutablePath(fresh);
+    if(!native.isEmpty()){
+        if(!QFileInfo(native).isExecutable())
+            nativeLaunchWarning(this,"У приложения нет права на запуск. Разрешите выполнение файла в Dolphin и попробуйте снова. Права автоматически не меняются.");
+        else if(!LauncherUtil::startDetachedWindowedProgram(native,{},QFileInfo(native).absolutePath()))
+            nativeLaunchWarning(this,"Не удалось запустить приложение. Исходный файл и ярлык сохранены.");
         return;
     }
 
@@ -898,6 +926,7 @@ void DesktopScene::onRenameRequested(DesktopIcon *icon)
         QMessageBox::warning(nullptr, "Переименование",
             "Could not rename \"" + oldName + "\" to \"" + targetFileName + "\".");
     } else {
+        ApplicationIcons::instance()->moveOverride(oldPath,newPath);
         claimEntry(targetFileName);
         if (m_positions.contains(oldName)) {
             m_positions[targetFileName] = m_positions.take(oldName);
@@ -1392,6 +1421,9 @@ void DesktopScene::onIconContextMenuRequested(DesktopIcon *icon, QPoint scenePos
         menu->addAction("Open", [this, fi] {
             if (QFileInfo::exists(fi.absoluteFilePath()) || QFileInfo(fi.absoluteFilePath()).isSymLink())
                 onOpenRequested(fi);
+        });
+        menu->addAction("Открыть расположение",[this,fi]{
+            if(!LauncherUtil::revealFile(fi))nativeLaunchWarning(this,"Не удалось открыть расположение. Проверьте доступность файла или подключите диск в Dolphin.","Расположение объекта");
         });
         menu->addSep();
 

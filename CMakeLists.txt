@@ -10,6 +10,8 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network)
 find_package(LayerShellQt REQUIRED)
 
 set(SOURCES
+    src/applicationicons.cpp
+    src/desktopapplaunch.cpp
     src/dolphinintegration.cpp
     src/pagecarousel.cpp
     src/pagepager.cpp
@@ -36,6 +38,8 @@ set(SOURCES
 )
 
 set(HEADERS
+    src/applicationicons.h
+    src/desktopapplaunch.h
     src/desktoptextdialog.h
     src/desktoplayout.h
     src/desktopwindow.h
@@ -66,11 +70,15 @@ target_link_libraries(oh-my-desktop PRIVATE
 
 # Permanent installation intentionally disabled in this experimental safety build.
 
+configure_file(src/application_icon.py application_icon.py COPYONLY)
+configure_file(src/app_probe.py app_probe.py COPYONLY)
 configure_file(src/safe_transfer.py safe_transfer.py COPYONLY)
 configure_file(src/open_shortcut.py open_shortcut.py COPYONLY)
 configure_file(src/desktop_pages.py desktop_pages.py COPYONLY)
 configure_file(src/send_to_desktop.py send-to-desktop.py COPYONLY)
 enable_testing()
+add_test(NAME application_icon_discovery COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_application_icon.py)
+add_test(NAME application_availability COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_app_probe.py)
 add_test(NAME file_safety COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_safe_transfer.py)
 add_test(NAME unavailable_shortcuts COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_open_shortcut.py)
 add_test(NAME desktop_links COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/test_desktop_links.py)
@@ -122,6 +130,9 @@ if(OMD_BUILD_PROPERTIES_CHECK)
     add_executable(properties-check tests/properties_check.cpp ${PROPERTIES_SOURCES} ${HEADERS} ${RESOURCES})
     target_include_directories(properties-check PRIVATE src)
     target_link_libraries(properties-check PRIVATE Qt6::Widgets Qt6::Network Qt6::GuiPrivate Qt6::Test LayerShellQt::Interface)
+    add_test(NAME native_app_launch COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_native_launch_check.py $<TARGET_FILE:properties-check>)
+    add_test(NAME application_icons COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_application_icons_check.py $<TARGET_FILE:properties-check>)
+    add_test(NAME missing_app_dialog COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_missing_app_check.py $<TARGET_FILE:properties-check>)
     add_test(NAME text_input_focus COMMAND ${CMAKE_COMMAND} -E env
         QT_QPA_PLATFORM=offscreen QT_QPA_PLATFORMTHEME=generic
         XDG_CONFIG_HOME=${CMAKE_BINARY_DIR}/properties-check-focus-config

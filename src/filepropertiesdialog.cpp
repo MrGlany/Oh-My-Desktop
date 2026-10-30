@@ -1,9 +1,12 @@
 #include "filepropertiesdialog.h"
 #include "desktopconstants.h"
-#include "exeiconutil.h"
+#include "applicationicons.h"
 
 #include <QDialogButtonBox>
 #include <QFile>
+#include <QFileDialog>
+#include <QSaveFile>
+#include <QImageReader>
 #include <QFileIconProvider>
 #include <QFormLayout>
 #include <QFrame>
@@ -19,6 +22,9 @@
 #include <QPushButton>
 #include <QTextStream>
 #include <QVBoxLayout>
+#include <sys/stat.h>
+
+static QString fileIdentity(const QString &path){struct stat s{};if(::lstat(QFile::encodeName(path).constData(),&s)!=0)return {};return QString::number(s.st_dev)+":"+QString::number(s.st_ino);}
 
 static QString humanSize(qint64 bytes)
 {
@@ -43,6 +49,7 @@ FilePropertiesDialog::FilePropertiesDialog(const QFileInfo &info, QWidget *paren
     , m_info(info)
     , m_isDesktopEntry(info.suffix().compare("desktop", Qt::CaseInsensitive) == 0)
 {
+    m_fileIdentity=fileIdentity(info.absoluteFilePath());
     setWindowTitle("Свойства");
     setObjectName("PropertiesDialog");
     setFixedWidth(kPropertiesDialogWidth);
@@ -62,14 +69,10 @@ FilePropertiesDialog::FilePropertiesDialog(const QFileInfo &info, QWidget *paren
 
         auto *iconLbl = new QLabel(banner);
 
-        // Try embedded exe icon first, then theme icon as fallback.
-        QPixmap exeIcon = ExeIconUtil::loadEmbeddedIcon(info);
-        if (!exeIcon.isNull()) {
-            iconLbl->setPixmap(exeIcon.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-        } else {
-            QFileIconProvider prov;
-            iconLbl->setPixmap(prov.icon(info).pixmap(32, 32));
-        }
+        m_iconPreview=iconLbl;m_iconPreview->setObjectName("DesktopIconPreview");
+        m_customIcon=m_originalCustomIcon=ApplicationIcons::instance()->overridePath(m_info);
+        connect(ApplicationIcons::instance(),&ApplicationIcons::changed,this,[this](const QString &path){if(path==m_info.absoluteFilePath())updateIconPreview();});
+        updateIconPreview();
 
         auto *nameLbl = new QLabel(info.fileName(), banner);
         nameLbl->setObjectName("PropBannerText");
@@ -136,6 +139,18 @@ FilePropertiesDialog::FilePropertiesDialog(const QFileInfo &info, QWidget *paren
         loadDesktopEntryFields();
     }
 
+    auto *iconGroup=new QGroupBox("Значок на рабочем столе",content);
+    auto *iconRow=new QHBoxLayout(iconGroup);
+    auto *choose=new QPushButton("Выбрать картинку…",iconGroup);choose->setObjectName("ChooseDesktopIcon");
+    auto *automatic=new QPushButton("Автоматически",iconGroup);automatic->setObjectName("ResetDesktopIcon");
+    iconRow->addWidget(choose);iconRow->addWidget(automatic);
+    connect(choose,&QPushButton::clicked,this,[this]{
+        const QString path=QFileDialog::getOpenFileName(this,"Значок рабочего стола",QString(),"Изображения (*.png *.svg *.ico *.webp *.jpg *.jpeg *.xpm)",nullptr,QFileDialog::DontUseNativeDialog);
+        if(!path.isEmpty()){m_customIcon=path;updateIconPreview();}
+    });
+    connect(automatic,&QPushButton::clicked,this,[this]{m_customIcon.clear();updateIconPreview();});
+    contentLayout->addWidget(iconGroup);
+
     auto *permGroup = new QGroupBox("Права доступа", content);
     {
         auto *pg = new QGridLayout(permGroup);
@@ -174,26 +189,37 @@ FilePropertiesDialog::FilePropertiesDialog(const QFileInfo &info, QWidget *paren
     }
     contentLayout->addWidget(permGroup);
 
-    QDialogButtonBox::StandardButtons buttons = QDialogButtonBox::Ok;
-    if (m_isDesktopEntry)
-        buttons = QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel;
-
-    auto *btnBox = new QDialogButtonBox(buttons, content);
-    if (m_isDesktopEntry) {
-        connect(btnBox->button(QDialogButtonBox::Apply), &QPushButton::clicked, this, [this]() {
-            saveDesktopEntryFields();
-        });
-        connect(btnBox, &QDialogButtonBox::accepted, this, [this]() {
-            if (saveDesktopEntryFields())
-                accept();
-        });
-        connect(btnBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    } else {
-        connect(btnBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    }
+    auto *btnBox=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Apply|QDialogButtonBox::Cancel,content);
+    connect(btnBox->button(QDialogButtonBox::Apply),&QPushButton::clicked,this,[this]{saveChanges();});
+    connect(btnBox,&QDialogButtonBox::accepted,this,[this]{if(saveChanges())accept();});
+    connect(btnBox,&QDialogButtonBox::rejected,this,&QDialog::reject);
     contentLayout->addWidget(btnBox);
 
     root->addWidget(content);
+}
+
+void FilePropertiesDialog::updateIconPreview()
+{
+    if(!m_iconPreview)return;
+    QIcon icon;
+    if(!m_customIcon.isEmpty()){
+        QImageReader reader(m_customIcon);
+        if(reader.canRead()&&reader.size().width()<=8192&&reader.size().height()<=8192)icon=QIcon(m_customIcon);
+    }else icon=ApplicationIcons::instance()->icon(m_info,true);
+    if(icon.isNull()){QFileIconProvider provider;icon=provider.icon(m_info);}
+    m_iconPreview->setPixmap(icon.pixmap(32,32));
+}
+bool FilePropertiesDialog::saveChanges()
+{
+    if(m_fileIdentity.isEmpty()||fileIdentity(m_info.absoluteFilePath())!=m_fileIdentity){QMessageBox::warning(this,"Файл изменился","Файл был удалён или заменён. Откройте свойства снова.");return false;}
+    if(!saveDesktopEntryFields())return false;
+    if(m_customIcon!=m_originalCustomIcon){
+        if(!ApplicationIcons::instance()->setOverride(QFileInfo(m_info.absoluteFilePath()),m_customIcon)){
+            QMessageBox::warning(this,"Значок","Не удалось сохранить значок. Выберите доступную картинку.");return false;
+        }
+        m_originalCustomIcon=m_customIcon;
+    }
+    return true;
 }
 
 void FilePropertiesDialog::loadDesktopEntryFields()
@@ -205,6 +231,7 @@ void FilePropertiesDialog::loadDesktopEntryFields()
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return;
 
+    m_originalEntry=file.readAll();file.seek(0);
     QTextStream in(&file);
     bool inDesktopEntry = false;
     while (!in.atEnd()) {
@@ -224,6 +251,7 @@ void FilePropertiesDialog::loadDesktopEntryFields()
         else if (key == "Exec") m_execEdit->setText(value);
         else if (key == "Icon") m_iconEdit->setText(value);
     }
+    m_originalFields={m_nameEdit->text(),m_execEdit->text(),m_iconEdit->text()};
 }
 
 bool FilePropertiesDialog::saveDesktopEntryFields()
@@ -231,6 +259,10 @@ bool FilePropertiesDialog::saveDesktopEntryFields()
     if (!m_isDesktopEntry || !m_nameEdit || !m_execEdit || !m_iconEdit)
         return true;
 
+    if(QStringList{m_nameEdit->text(),m_execEdit->text(),m_iconEdit->text()}==m_originalFields)return true;
+    if(QFileInfo(m_info.absoluteFilePath()).isSymLink()){
+        QMessageBox::warning(this,"Ярлык приложения","Поля ссылки нельзя менять в исходном приложении. Для своего значка используйте «Выбрать картинку» ниже.");return false;
+    }
     if (m_nameEdit->text().trimmed().isEmpty()) {
         QMessageBox::warning(this, "Ярлык приложения", "Название не может быть пустым.");
         return false;
@@ -241,6 +273,8 @@ bool FilePropertiesDialog::saveDesktopEntryFields()
         QMessageBox::warning(this, "Ярлык приложения", "Не удалось открыть ярлык для редактирования.");
         return false;
     }
+    if(file.readAll()!=m_originalEntry){QMessageBox::warning(this,"Ярлык изменился","Файл изменился. Закройте свойства и откройте их снова.");return false;}
+    file.seek(0);
     QStringList lines;
     QTextStream in(&file);
     while (!in.atEnd())
@@ -302,15 +336,13 @@ bool FilePropertiesDialog::saveDesktopEntryFields()
     if (!foundExec) lines.insert(desktopEntryEnd++, "Exec=" + m_execEdit->text().trimmed());
     if (!foundIcon) lines.insert(desktopEntryEnd++, "Icon=" + m_iconEdit->text().trimmed());
 
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
-        QMessageBox::warning(this, "Ярлык приложения", "Не удалось сохранить изменения ярлыка.");
-        return false;
+    const QByteArray updated=(lines.join('\n')+'\n').toUtf8();
+    QSaveFile output(m_info.absoluteFilePath());
+    if(!output.open(QIODevice::WriteOnly)||!output.setPermissions(QFile::permissions(m_info.absoluteFilePath()))||output.write(updated)!=updated.size()||!output.commit()){
+        QMessageBox::warning(this,"Ярлык приложения","Не удалось сохранить изменения. Исходный файл сохранён.");return false;
     }
-
-    QTextStream out(&file);
-    for (const QString &line : lines)
-        out << line << '\n';
-    file.close();
+    m_fileIdentity=fileIdentity(m_info.absoluteFilePath());
+    m_originalEntry=updated;m_originalFields={m_nameEdit->text(),m_execEdit->text(),m_iconEdit->text()};
 
     return true;
 }

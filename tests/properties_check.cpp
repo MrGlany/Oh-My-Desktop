@@ -18,6 +18,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QTest>
 #include <QFile>
 #include <QSettings>
@@ -54,9 +55,42 @@ static bool computerIcon(DesktopScene &scene) {
 #include "monitor_check.h"
 #include "offline_shortcut_check.h"
 #include "pages_check.h"
+#include "missing_app_check.h"
+#include "application_icons_check.h"
+#include "native_launch_check.h"
 int main(int argc,char **argv) {
     QApplication app(argc,argv);
     if(!qEnvironmentVariable("XDG_CONFIG_HOME").contains("properties-check"))return 10;
+    if(app.arguments().contains("--native-launch-check"))return nativeLaunchCheck();
+    if(app.arguments().contains("--application-icons-check"))return applicationIconsCheck();
+    if(app.arguments().contains("--missing-app-live-check")){
+        const QString root=qEnvironmentVariable("OMD_DESKTOP_DIR");
+        if(!root.contains("properties-check-missing-app-live"))return 141;
+        QDir().mkpath(root);const QString path=root+"/Removed.desktop";
+        QFile file(path);if(!file.open(QIODevice::WriteOnly))return 142;
+        file.write("[Desktop Entry]\nType=Application\nName=Тест удалённого приложения\nExec=/nonexistent-omd-fixture/bin/app\n");file.close();
+        DesktopWindow desktopWindow(app.primaryScreen());
+        auto *layer=LayerShellQt::Window::get(desktopWindow.windowHandle());
+        layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);QTest::qWait(400);
+        layer->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);QTest::qWait(150);
+        const bool hadFocus=QGuiApplication::focusWindow()==desktopWindow.windowHandle();
+        bool focused=false;QElapsedTimer focusElapsed;focusElapsed.start();QTimer poll;poll.setInterval(30);
+        QObject::connect(&poll,&QTimer::timeout,[&]{
+            auto *box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget());if(!box)return;
+            if(box->objectName()!="MissingApplicationShortcut"){box->accept();return;}
+            if(box->isActiveWindow()&&QGuiApplication::focusWindow()==box->windowHandle()){
+                focused=layer->keyboardInteractivity()==LayerShellQt::Window::KeyboardInteractivityNone;
+                box->grab().save(root+"/../missing-app-dialog.png");
+                QTest::keyClick(box,Qt::Key_Escape);
+            }else if(focusElapsed.elapsed()>2500)box->reject();
+        });
+        poll.start();DesktopAppLauncher::open(path,&desktopWindow);
+        for(int wait=0;wait<160&&!qApp->findChildren<QObject*>("DesktopAppLaunchJob").isEmpty();++wait)QTest::qWait(20);
+        poll.stop();
+        if(!hadFocus||!focused||!QFileInfo::exists(path)||!qApp->findChildren<QObject*>("DesktopAppLaunchJob").isEmpty()||layer->keyboardInteractivity()!=LayerShellQt::Window::KeyboardInteractivityOnDemand)return 143;
+        puts("PASS native missing-app dialog: layer releases keyboard, warning active, Escape keeps shortcut, layer restored");return 0;
+    }
+    if(app.arguments().contains("--missing-app-check"))return missingAppCheck();
     if(app.arguments().contains("--layer-text-input-focus-check")) {
         const QString desktop=qEnvironmentVariable("OMD_DESKTOP_DIR");
         if(!desktop.contains("properties-check-layer-focus"))return 91;

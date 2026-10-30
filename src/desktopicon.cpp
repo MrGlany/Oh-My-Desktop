@@ -2,7 +2,7 @@
 #include <QPointer>
 #include "launcherutil.h"
 #include "desktopconstants.h"
-#include "exeiconutil.h"
+#include "applicationicons.h"
 #include "trashmonitor.h"
 
 #include <QPainter>
@@ -131,6 +131,9 @@ DesktopIcon::DesktopIcon(const QFileInfo &fileInfo, int iconSize, bool showPrevi
     setCursor(Qt::ArrowCursor);
     setMouseTracking(true);
 
+    connect(ApplicationIcons::instance(),&ApplicationIcons::changed,this,[this](const QString &path){
+        if(path==m_fileInfo.absoluteFilePath()){resolveIcon();update();if(parentWidget())parentWidget()->update();}
+    });
     // .desktop file support
     if (fileInfo.suffix().toLower() == "desktop") {
         m_isDesktopFile = true;
@@ -285,6 +288,11 @@ void DesktopIcon::resolveIcon()
         return;
     }
 
+    if(!ApplicationIcons::instance()->overridePath(m_fileInfo).isEmpty()){
+        const auto custom=ApplicationIcons::instance()->icon(m_fileInfo);
+        if(!custom.isNull()){m_hasThumbnail=false;m_thumbnail=QPixmap();m_icon=custom;return;}
+    }
+
     // Custom icon for .desktop files
     if (m_isDesktopFile && !m_desktopEntry.icon.isEmpty()) {
         m_icon = QIcon::fromTheme(m_desktopEntry.icon);
@@ -297,13 +305,8 @@ void DesktopIcon::resolveIcon()
         if (!m_icon.isNull()) return;
     }
 
-    // Windows .exe: extract embedded icon via ExeIconUtil.
-    QPixmap exePixmap = ExeIconUtil::loadEmbeddedIcon(m_fileInfo);
-    if (!exePixmap.isNull()) {
-        m_thumbnail    = exePixmap;
-        m_hasThumbnail = true;
-        return;
-    }
+    const auto appIcon=ApplicationIcons::instance()->icon(m_fileInfo);
+    if(!appIcon.isNull()){m_hasThumbnail=false;m_thumbnail=QPixmap();m_icon=appIcon;return;}
 
     static const QStringList kImageExts = {
         "jpg", "jpeg", "png", "gif", "bmp", "webp",
@@ -596,17 +599,6 @@ void DesktopIcon::mouseDoubleClickEvent(QMouseEvent *event)
             }
             if (!uri.isEmpty())
                 LauncherUtil::openLocation(uri);
-        } else if (m_fileInfo.isSymLink() && !QFileInfo(m_fileInfo.absoluteFilePath()).exists()) {
-            emit openRequested(m_fileInfo);
-        } else if (m_isDesktopFile && !m_desktopEntry.exec.isEmpty()) {
-            // Run .desktop command via shell for maximum compatibility
-            QString exec = m_desktopEntry.exec;
-            // Remove field codes like %f, %u, etc.
-            exec.replace(QRegularExpression("%[fFuUdDnNickvm]"), "");
-            exec = exec.trimmed();
-            if (!exec.isEmpty()) {
-                LauncherUtil::startDetachedWindowedCommand(exec);
-            }
         } else {
             emit openRequested(m_fileInfo);
         }
