@@ -23,6 +23,7 @@ DesktopLayout::DesktopLayout(QObject *parent) : QObject(parent) {
     QDir().mkpath(dir);
     m_path = dir + "/monitor-layout.ini";
     QSettings settings(m_path, QSettings::IniFormat);
+    m_primaryScreen = settings.value("display/primaryMonitor").toString();
     settings.beginGroup("owners");
     for (const QString &key : settings.childKeys())
         m_owners.insert(QString::fromUtf8(QByteArray::fromBase64(key.toLatin1(), QByteArray::Base64UrlEncoding)), settings.value(key).toString());
@@ -53,8 +54,13 @@ DesktopLayout::DesktopLayout(QObject *parent) : QObject(parent) {
     connect(qGuiApp, &QGuiApplication::screenRemoved, this, [this]{emit changed();});
 }
 QString DesktopLayout::primaryScreen() const {
-    // Hyprland has no persistent primary-output flag. Match this installation's
-    // main output, with an optional explicit override and a safe Qt fallback.
+    return primaryScreen(m_primaryScreen);
+}
+QString DesktopLayout::primaryScreen(const QString &preference) const {
+    // An explicit UI choice wins. Keep it saved while unplugged, using the
+    // legacy automatic selection temporarily without reassigning icon owners.
+    for (auto *screen : QGuiApplication::screens())
+        if (!preference.isEmpty() && screenName(screen) == preference) return preference;
     const QString preferred = qEnvironmentVariable("OMD_PRIMARY_MONITOR", "DP-1");
     for (auto *screen : QGuiApplication::screens())
         if (screenName(screen) == preferred) return preferred;
@@ -143,6 +149,11 @@ bool DesktopLayout::activatePage(const QString &screen,const QString &page) {
     m_activePages.insert(screen,page);emit changed();return true;
 }
 bool DesktopLayout::replacePages(const DesktopPageSets &sets) {
+    return replacePages(sets,m_primaryScreen);
+}
+bool DesktopLayout::replacePages(const DesktopPageSets &sets,const QString &primaryScreen) {
+    // A preference must name a known output; empty means automatic selection.
+    if(!primaryScreen.isEmpty() && !sets.contains(primaryScreen))return false;
     // Validate the entire edit before writing anything. Never drop an output.
     for(const auto &screen:pageSets().keys())if(!sets.contains(screen))return false;
     for(auto it=sets.cbegin();it!=sets.cend();++it) {
@@ -170,6 +181,7 @@ bool DesktopLayout::replacePages(const DesktopPageSets &sets) {
             }
         }
     }
+    cfg.setValue("display/primaryMonitor",primaryScreen);
     cfg.sync();if(cfg.status()!=QSettings::NoError)return false;
-    m_pages=sets;m_activePages=active;m_entryPages=entryPages;emit changed();return true;
+    m_pages=sets;m_activePages=active;m_entryPages=entryPages;m_primaryScreen=primaryScreen;emit changed();return true;
 }

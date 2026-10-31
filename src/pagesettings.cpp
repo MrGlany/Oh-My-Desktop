@@ -15,17 +15,23 @@
 PageSettings::PageSettings(QWidget *parent):QWidget(parent),m_draft(DesktopLayout::instance()->pageSets()) {
     setObjectName("DesktopPagesSettings");
     auto *layout=new QVBoxLayout(this);layout->setContentsMargins(8,8,8,8);layout->setSpacing(8);
+    auto *primaryRow=new QHBoxLayout;
+    auto *primaryLabel=new QLabel("Основной монитор",this);primaryRow->addWidget(primaryLabel);
+    m_primaryMonitor=new QComboBox(this);m_primaryMonitor->setObjectName("PrimaryMonitor");
+    primaryLabel->setBuddy(m_primaryMonitor);
+    m_primaryMonitor->addItem("Автоматически",QString());
+    const QString preferred=DesktopLayout::instance()->preferredPrimaryScreen();
+    if(!preferred.isEmpty())m_primaryMonitor->addItem(preferred,preferred);
+    m_primaryMonitor->setCurrentIndex(preferred.isEmpty()?0:1);
+    m_primaryMonitor->setToolTip("Основной экран только для Oh My Desktop. Настройки мониторов Hyprland не меняются.");
+    primaryRow->addWidget(m_primaryMonitor,1);layout->addLayout(primaryRow);
+    auto *primaryHint=new QLabel("Новые файлы извне появляются на основном мониторе. Уже размещённые значки остаются на своих местах.",this);
+    primaryHint->setWordWrap(true);layout->addWidget(primaryHint);
     auto *monitorRow=new QHBoxLayout;
-    monitorRow->addWidget(new QLabel("Монитор",this));
-    m_monitor=new QComboBox(this);m_monitor->setObjectName("PageMonitor");
-    for(const auto &name:m_draft.keys()) {
-        QString label=name;bool connected=false;
-        for(auto *screen:QGuiApplication::screens())if(DesktopLayout::screenName(screen)==name)connected=true;
-        if(!connected)label+=" · отключён";
-        else if(name==DesktopLayout::instance()->primaryScreen())label+=" · основной";
-        m_monitor->addItem(label,name);
-    }
+    auto *monitorLabel=new QLabel("Страницы монитора",this);monitorRow->addWidget(monitorLabel);
+    m_monitor=new QComboBox(this);m_monitor->setObjectName("PageMonitor");monitorLabel->setBuddy(m_monitor);
     monitorRow->addWidget(m_monitor,1);layout->addLayout(monitorRow);
+    refreshMonitors();
     m_carousel=new PageCarousel(this);layout->addWidget(m_carousel,1);
     auto *nameRow=new QHBoxLayout;
     auto *nameLabel=new QLabel("Название",this);nameRow->addWidget(nameLabel);
@@ -60,7 +66,32 @@ PageSettings::PageSettings(QWidget *parent):QWidget(parent),m_draft(DesktopLayou
         if(QMessageBox::question(this,"Удалить страницу?","Значки вернутся на основную страницу этого монитора. Файлы останутся на месте.")!=QMessageBox::Yes)return;
         pages.removeAt(row);reload();
     });
+    connect(m_primaryMonitor,&QComboBox::currentIndexChanged,this,[this]{refreshMonitors();});
+    connect(qGuiApp,&QGuiApplication::screenAdded,this,[this]{refreshMonitors();reload();});
+    connect(qGuiApp,&QGuiApplication::screenRemoved,this,[this]{refreshMonitors();reload();});
     reload();
+}
+void PageSettings::refreshMonitors(){
+    const QString selected=monitor();
+    const QString preferred=m_primaryMonitor->currentData().toString();
+    const QString effective=DesktopLayout::instance()->primaryScreen(preferred);
+    const auto live=DesktopLayout::instance()->pageSets();
+    for(auto it=live.cbegin();it!=live.cend();++it)if(!m_draft.contains(it.key()))m_draft.insert(it.key(),it.value());
+    QSignalBlocker primaryBlocked(m_primaryMonitor),monitorBlocked(m_monitor);
+    m_primaryMonitor->clear();m_primaryMonitor->addItem("Автоматически",QString());m_monitor->clear();
+    for(const auto &name:m_draft.keys()){
+        bool connected=false;
+        for(auto *screen:QGuiApplication::screens())if(DesktopLayout::screenName(screen)==name)connected=true;
+        QString label=name;
+        if(!connected)label+=" · отключён";
+        else if(name==effective)label+=" · основной";
+        m_monitor->addItem(label,name);
+        m_primaryMonitor->addItem(name+(connected?QString():QString(" · отключён")),name);
+    }
+    const int primaryIndex=m_primaryMonitor->findData(preferred);
+    m_primaryMonitor->setCurrentIndex(qMax(0,primaryIndex));
+    const int monitorIndex=m_monitor->findData(selected);
+    m_monitor->setCurrentIndex(qMax(0,monitorIndex));
 }
 QString PageSettings::monitor() const{return m_monitor->currentData().toString();}
 void PageSettings::selectMonitor(const QString &name){int i=m_monitor->findData(name);if(i>=0)m_monitor->setCurrentIndex(i);}
@@ -87,6 +118,6 @@ void PageSettings::move(int direction){
 bool PageSettings::commit(){
     const auto live=DesktopLayout::instance()->pageSets();
     for(auto it=live.cbegin();it!=live.cend();++it)if(!m_draft.contains(it.key()))m_draft.insert(it.key(),it.value());
-    if(DesktopLayout::instance()->replacePages(m_draft))return true;
-    QMessageBox::warning(this,"Страницы","Не удалось сохранить страницы. Проверьте названия и доступ к настройкам.");return false;
+    if(DesktopLayout::instance()->replacePages(m_draft,m_primaryMonitor->currentData().toString())){refreshMonitors();return true;}
+    QMessageBox::warning(this,"Страницы","Не удалось сохранить страницы и основной монитор. Проверьте названия и доступ к настройкам.");return false;
 }

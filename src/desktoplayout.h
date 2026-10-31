@@ -18,6 +18,8 @@ public:
     static DesktopLayout *instance();
     static QString screenName(const class QScreen *screen);
     QString primaryScreen() const;
+    QString primaryScreen(const QString &preference) const;
+    QString preferredPrimaryScreen() const { return m_primaryScreen; }
     QString focusedScreen() const;
     void setFocusedScreen(const QString &screen);
     QString owner(const QString &key) const;
@@ -29,6 +31,7 @@ public:
     bool visible(const QString &key, const QString &screen) const;
     bool activatePage(const QString &screen, const QString &page);
     bool replacePages(const DesktopPageSets &sets);
+    bool replacePages(const DesktopPageSets &sets, const QString &primaryScreen);
     void rememberDefaults(const QStringList &keys);
     void forgetMissing(const QStringList &existing);
 signals:
@@ -41,4 +44,5 @@ private:
     DesktopPageSets m_pages;
     QString m_path;
     QString m_focusedScreen;
+    QString m_primaryScreen;
 };
