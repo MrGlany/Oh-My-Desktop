@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <QDialog>
+#include <QPlainTextEdit>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -216,8 +217,10 @@ DesktopScene::DesktopScene(QScreen *screen, QWidget *parent)
 
 bool DesktopScene::eventFilter(QObject *obj, QEvent *e)
 {
+    if(filterInlineRenameEvent(obj,e))return true;
     auto *icon = qobject_cast<DesktopIcon *>(obj);
     if (!icon) return false;
+    if(m_inlineEditor){m_tooltipTimer->stop();m_tooltipWindow->hide();return false;}
 
     switch (e->type()) {
     case QEvent::Enter:
@@ -252,6 +255,7 @@ bool DesktopScene::eventFilter(QObject *obj, QEvent *e)
 
 DesktopScene::~DesktopScene()
 {
+    finishInlineRename(false);
     savePositions();
     delete m_tooltipWindow;
     if (m_hypSockFd >= 0) {
@@ -530,6 +534,7 @@ void DesktopScene::connectIconSignals(DesktopIcon* icon, bool isVirtual)
     } else {
         connect(icon, &DesktopIcon::openRequested,  this, &DesktopScene::onOpenRequested);
         connect(icon, &DesktopIcon::renameRequested,this, &DesktopScene::onRenameRequested);
+        connect(icon, &DesktopIcon::inlineRenameRequested,this,&DesktopScene::onInlineRenameRequested);
         connect(icon, &DesktopIcon::deleteRequested,this, &DesktopScene::onDeleteRequested);
     }
     icon->installEventFilter(this);
@@ -543,7 +548,10 @@ void DesktopScene::addNewIcons(const QFileInfoList& entries)
     for (auto *icon : m_icons)
         currentNames.insert(iconKey(icon));
 
-    for (const QFileInfo &fi : entries) {
+    QFileInfoList orderedEntries=entries;
+    // Reserve a renamed icon's old cell before unrelated new directory entries.
+    for(int n=0;n<orderedEntries.size();++n)if(orderedEntries[n].fileName()==m_selectAfterRename){orderedEntries.move(n,0);break;}
+    for (const QFileInfo &fi : orderedEntries) {
         const QString name = fi.fileName();
         if (currentNames.contains(name))
             continue;  // already present
@@ -564,6 +572,7 @@ void DesktopScene::addNewIcons(const QFileInfoList& entries)
 
         connectIconSignals(icon, false);
         m_icons.append(icon);
+        if(name==m_selectAfterRename){icon->setSelected(true);m_selectAfterRename.clear();}
         currentNames.insert(name);
     }
 }
@@ -638,6 +647,10 @@ void DesktopScene::updateIconPreview()
 
 void DesktopScene::refresh()
 {
+    if(m_inlineEditor){
+        if(!DesktopLayout::instance()->visible(m_inlineFile.fileName(),m_screenName))finishInlineRename(false);
+        else return; // Refresh after editing ends, without losing typed text.
+    }
     if (m_nativeDragging) return;
     if(m_pageId!=DesktopLayout::instance()->activePage(m_screenName)){syncCurrentPage();return;}
     if(m_pageTransition){queueRefresh(260);return;}
@@ -863,82 +876,9 @@ void DesktopScene::onOpenRequested(const QFileInfo &fileInfo)
     LauncherUtil::startDetachedWindowedProgram("xdg-open", { path });
 }
 
-void DesktopScene::onRenameRequested(DesktopIcon *icon)
-{
-    bool ok = false;
-    const QString oldName = icon->fileInfo().fileName();
-    const QString oldPath = icon->fileInfo().absoluteFilePath();
-    const QString dirPath = icon->fileInfo().absolutePath();
-    QString renameSeed = oldName;
-    if (icon->fileInfo().suffix().compare("desktop", Qt::CaseInsensitive) == 0) {
-        QFile file(oldPath);
-        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QTextStream in(&file);
-            bool inDesktopEntry = false;
-            while (!in.atEnd()) {
-                const QString line = in.readLine().trimmed();
-                if (line.startsWith('[')) {
-                    inDesktopEntry = (line == "[Desktop Entry]");
-                    continue;
-                }
-                if (!inDesktopEntry || line.startsWith('#'))
-                    continue;
-                if (!line.startsWith("Name="))
-                    continue;
-                const QString desktopTitle = line.mid(5).trimmed();
-                if (!desktopTitle.isEmpty()) {
-                    renameSeed = desktopTitle;
-                    break;
-                }
-            }
-        }
-    }
-
-    // Block the file watcher while the rename dialog is open.
-    const bool wasWatching = m_watcher->blockSignals(true);
-
-    const QString newName = DesktopDialogs::getText(
-        this, m_screen, "Переименование", "Новое имя:", renameSeed, &ok
-    );
-
-    // Restore watcher and manually trigger a refresh to pick up the rename.
-    m_watcher->blockSignals(wasWatching);
-    queueRefresh(50);
-
-    if (!ok || newName.trimmed().isEmpty()) return;
-
-    const QString trimmedName = newName.trimmed();
-    QString targetFileName = trimmedName;
-    if (oldPath.toLower().endsWith(".desktop")
-        && !trimmedName.endsWith(".desktop", Qt::CaseInsensitive)) {
-        targetFileName += ".desktop";
-    }
-    if (targetFileName == oldName) return;
-
-    if (targetFileName == "." || targetFileName == ".." || targetFileName.contains('/')
-        || targetFileName.contains(QChar::Null)) {
-        QMessageBox::warning(this, "Переименование", "Укажите одно имя без пути к файлу.");
-        return;
-    }
-    const QString newPath = dirPath + "/" + targetFileName;
-
-    if (!FileTransfer::run(oldPath, newPath, true, false, this)) {
-        QMessageBox::warning(nullptr, "Переименование",
-            "Could not rename \"" + oldName + "\" to \"" + targetFileName + "\".");
-    } else {
-        ApplicationIcons::instance()->moveOverride(oldPath,newPath);
-        claimEntry(targetFileName);
-        if (m_positions.contains(oldName)) {
-            m_positions[targetFileName] = m_positions.take(oldName);
-            queueSavePositions(kSaveDebounceMs);
-        }
-        // Manually trigger refresh now that the rename is complete.
-        queueRefresh(50);
-    }
-}
-
 void DesktopScene::keyPressEvent(QKeyEvent *event)
 {
+    for(auto *icon:m_icons)icon->cancelPendingRename();
     const int key = event->key();
 
     // Ctrl+C / Ctrl+X / Ctrl+V, clipboard
@@ -1116,6 +1056,7 @@ void DesktopScene::onFileDroppedOnTrash(const QString &filePath)
 
 void DesktopScene::mousePressEvent(QMouseEvent *event)
 {
+    for(auto *icon:m_icons)icon->cancelPendingRename();
     // Dismiss in-surface context menus only on left click outside them.
     if (event->button() == Qt::LeftButton) {
         if (m_ctxMenu && m_ctxMenu->isVisible()) {
@@ -1372,6 +1313,7 @@ void DesktopScene::showDesktopContextMenuAt(const QPoint &scenePos)
 
 void DesktopScene::onIconPressed(DesktopIcon *icon, bool ctrlHeld)
 {
+    for(auto *other:m_icons)if(other!=icon)other->cancelPendingRename();
     setFocus();   // grab keyboard so Delete key works after clicking an icon
     if (m_ctxMenu && m_ctxMenu->isVisible())
         static_cast<InlineMenu*>(m_ctxMenu)->closeAll();

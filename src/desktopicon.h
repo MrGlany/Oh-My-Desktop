@@ -11,6 +11,8 @@ struct DesktopEntryData {
 #pragma once
 
 #include <QWidget>
+#include <QElapsedTimer>
+#include <QTimer>
 #include <QFileInfo>
 #include <QPoint>
 #include <QPixmap>
@@ -48,6 +50,8 @@ public:
     bool isCut() const { return m_cut; }
     bool unavailableLink() const { return m_unavailableLink; }
     void refreshLinkState();
+    void cancelPendingRename() { m_renameTimer.stop();m_inlineCandidate=false; }
+    QFont labelFont() const { return QFont(m_fontFamily,m_fontSize); }
 
 signals:
     void pressed(DesktopIcon *icon, bool ctrlHeld);
@@ -57,6 +61,7 @@ signals:
     void moved(DesktopIcon *icon, QPoint scenePos);
     void openRequested(const QFileInfo &fileInfo);
     void renameRequested(DesktopIcon *icon);
+    void inlineRenameRequested(DesktopIcon *icon);
     void deleteRequested(DesktopIcon *icon);
     void iconContextMenuRequested(DesktopIcon *icon, QPoint scenePos);
     // Emitted when a file icon is dropped onto this (trash) icon
@@ -64,6 +69,7 @@ signals:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
+    void hideEvent(QHideEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -84,6 +90,11 @@ private:
 
     QFileInfo   m_fileInfo;
     VirtualType m_virtualType     = VirtualType::None;
+    QTimer m_renameTimer;
+    QElapsedTimer m_selectedSince;
+    bool m_inlineCandidate = false;
+    bool m_pressDragged = false;
+    bool m_doubleClickRelease = false;
     bool    m_selected        = false;
     bool    m_hovered         = false;
     bool    m_dragging        = false;

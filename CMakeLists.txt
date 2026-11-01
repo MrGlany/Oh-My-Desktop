@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(OhMyDesktop VERSION 1.0.1 LANGUAGES CXX)
+project(OhMyDesktop VERSION 1.0.2 LANGUAGES CXX)
 include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -25,6 +25,7 @@ set(SOURCES
     src/main.cpp
     src/desktopwindow.cpp
     src/desktopscene.cpp
+    src/desktopscene_rename.cpp
     src/desktopscene_grid.cpp
     src/desktopscene_dragdrop.cpp
     src/desktopscene_ipc.cpp
@@ -150,6 +151,7 @@ if(OMD_BUILD_PROPERTIES_CHECK)
     add_executable(properties-check tests/properties_check.cpp ${PROPERTIES_SOURCES} ${HEADERS} ${RESOURCES})
     target_include_directories(properties-check PRIVATE src)
     target_link_libraries(properties-check PRIVATE Qt6::Widgets Qt6::Network Qt6::GuiPrivate Qt6::Test LayerShellQt::Interface)
+    add_test(NAME inline_rename COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_inline_rename_check.py $<TARGET_FILE:properties-check>)
     add_test(NAME primary_monitor_selection COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_primary_monitor_check.py $<TARGET_FILE:properties-check>)
     add_test(NAME native_app_launch COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_native_launch_check.py $<TARGET_FILE:properties-check>)
     add_test(NAME application_icons COMMAND /usr/bin/python3 ${CMAKE_SOURCE_DIR}/tests/run_application_icons_check.py $<TARGET_FILE:properties-check>)

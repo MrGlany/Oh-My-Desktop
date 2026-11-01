@@ -58,7 +58,7 @@ bool DesktopScene::cellReserved(int col,int row) const {
     return m_pager && QRect(cellToPos(col,row),QSize(m_iconSize+kIconExtraWidth,m_iconSize+kIconExtraHeight)).intersects(m_pager->geometry().adjusted(-6,-4,6,4));
 }
 void DesktopScene::resizeEvent(QResizeEvent *e) {
-    finishPageAnimation();QWidget::resizeEvent(e);updatePager();
+    finishInlineRename(false);finishPageAnimation();QWidget::resizeEvent(e);updatePager();
 }
 bool DesktopScene::setCurrentPage(const QString &id) {
     m_pageStepDirection=0;
@@ -126,7 +126,7 @@ void DesktopScene::syncCurrentPage() {
     auto *layout=DesktopLayout::instance();const QString next=layout->activePage(m_screenName);
     if(next==m_pageId){m_pageStepDirection=0;updatePager();queueRefresh(0);return;}
     const int stepDirection=m_pageStepDirection;m_pageStepDirection=0;
-    finishPageAnimation();closeAllMenus();savePositions();
+    finishInlineRename(false);finishPageAnimation();closeAllMenus();savePositions();
     const auto before=capturePage(m_icons);
     int oldIndex=0,newIndex=0;const auto pages=layout->pages(m_screenName);
     for(int n=0;n<pages.size();++n){if(pages[n].id==m_pageId)oldIndex=n;if(pages[n].id==next)newIndex=n;}

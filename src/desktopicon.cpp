@@ -6,6 +6,7 @@
 #include "trashmonitor.h"
 
 #include <QPainter>
+#include <QHideEvent>
 #include <QMouseEvent>
 #include <QDragEnterEvent>
 #include <QDropEvent>
@@ -133,6 +134,11 @@ DesktopIcon::DesktopIcon(const QFileInfo &fileInfo, int iconSize, bool showPrevi
 
     connect(ApplicationIcons::instance(),&ApplicationIcons::changed,this,[this](const QString &path){
         if(path==m_fileInfo.absoluteFilePath()){resolveIcon();update();if(parentWidget())parentWidget()->update();}
+    });
+    m_renameTimer.setSingleShot(true);
+    connect(&m_renameTimer,&QTimer::timeout,this,[this]{
+        if(m_selected && isVisible() && !m_pressDragged && QApplication::keyboardModifiers()==Qt::NoModifier)
+            emit inlineRenameRequested(this);
     });
     // .desktop file support
     if (fileInfo.suffix().toLower() == "desktop") {
@@ -373,6 +379,8 @@ void DesktopIcon::setSelected(bool selected)
 {
     if (m_selected == selected) return;
     m_selected = selected;
+    if(selected)m_selectedSince.start();
+    else {m_selectedSince.invalidate();m_renameTimer.stop();m_inlineCandidate=false;}
     update();
 }
 
@@ -516,9 +524,23 @@ void DesktopIcon::paintEvent(QPaintEvent *)
     p.drawText(textRect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWrapAnywhere, label);
 }
 
+void DesktopIcon::hideEvent(QHideEvent *event){
+    m_renameTimer.stop();m_inlineCandidate=false;m_selectedSince.invalidate();
+    QWidget::hideEvent(event);
+}
+
 void DesktopIcon::mousePressEvent(QMouseEvent *event)
 {
+    m_renameTimer.stop();
     if (event->button() == Qt::LeftButton) {
+        if(m_selected&&!m_selectedSince.isValid())m_selectedSince.start();
+        int selected=0;
+        if(parentWidget())for(auto *icon:parentWidget()->findChildren<DesktopIcon*>(QString(),Qt::FindDirectChildrenOnly))if(icon->isSelected())++selected;
+        const int labelTop=kIconLabelMarginTop+m_iconDisplaySize-1+kIconLabelMarginTop;
+        m_inlineCandidate=!isVirtual() && m_selected && selected==1 &&
+            event->modifiers()==Qt::NoModifier && event->position().y()>=labelTop &&
+            m_selectedSince.isValid() && m_selectedSince.elapsed()>QApplication::doubleClickInterval();
+        m_pressDragged=false;m_doubleClickRelease=false;
         m_ctrlAtPress      = event->modifiers() & Qt::ControlModifier;
         m_dragStartPos     = event->globalPosition().toPoint();
         m_dragStartIconPos = pos();
@@ -528,6 +550,7 @@ void DesktopIcon::mousePressEvent(QMouseEvent *event)
         emit pressed(this, m_ctrlAtPress);
         event->accept();
     } else if (event->button() == Qt::RightButton) {
+        m_inlineCandidate=false;
         m_rightPressed = true;
         event->accept();
     } else {
@@ -541,6 +564,7 @@ void DesktopIcon::mouseMoveEvent(QMouseEvent *event)
         const QPoint delta = event->globalPosition().toPoint() - m_dragStartPos;
         if (!m_dragging && delta.manhattanLength() > QApplication::startDragDistance()) {
             m_dragging = true;
+            m_pressDragged=true;m_inlineCandidate=false;m_renameTimer.stop();
             QPointer<DesktopIcon> alive(this);
             emit dragStarted(this, m_dragOffset);
             if (!alive) return; // The source output may disappear during native drag.
@@ -571,8 +595,12 @@ void DesktopIcon::mouseReleaseEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton) {
         if (m_dragging)
             emit moved(this, m_lastDragPos); // virtual position, not actual widget pos
-        emit released(this, m_dragging, m_ctrlAtPress);
+        const bool wasDrag=m_dragging||m_pressDragged;
+        const bool rename=m_inlineCandidate&&!wasDrag&&!m_doubleClickRelease;
+        m_inlineCandidate=false;m_doubleClickRelease=false;
+        emit released(this,wasDrag,m_ctrlAtPress);
         m_dragging = false;
+        if(rename && m_selected)m_renameTimer.start(QApplication::doubleClickInterval()+50);
         event->accept();
     } else if (event->button() == Qt::RightButton) {
         if (m_rightPressed) {
@@ -588,6 +616,7 @@ void DesktopIcon::mouseReleaseEvent(QMouseEvent *event)
 
 void DesktopIcon::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    m_renameTimer.stop();m_inlineCandidate=false;m_doubleClickRelease=true;
     if (event->button() == Qt::LeftButton) {
         if (m_virtualType != VirtualType::None) {
             QString uri;
@@ -602,6 +631,7 @@ void DesktopIcon::mouseDoubleClickEvent(QMouseEvent *event)
         } else {
             emit openRequested(m_fileInfo);
         }
+        event->accept();return;
     }
     QWidget::mouseDoubleClickEvent(event);
 }

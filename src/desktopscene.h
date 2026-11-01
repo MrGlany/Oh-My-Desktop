@@ -23,6 +23,7 @@
 #include "propertiesdialog.h"
 
 class DesktopIcon;
+class QPlainTextEdit;
 
 class DesktopScene : public QWidget
 {
@@ -68,6 +69,7 @@ private slots:
     void onIconMoved(DesktopIcon *icon, QPoint scenePos);
     void onOpenRequested(const QFileInfo &fileInfo);
     void onRenameRequested(DesktopIcon *icon);
+    void onInlineRenameRequested(DesktopIcon *icon);
     void onDeleteRequested(DesktopIcon *icon);
     void onDeleteKeys(bool permanent);
     void onFileDroppedOnTrash(const QString &filePath);
@@ -115,6 +117,15 @@ private:
     void openIconFromKeyboard(DesktopIcon *icon);
     void loadPositions();
     void savePositions();
+    bool renameEntry(const QFileInfo &file,const QString &name,const QByteArray &identity,QString *error);
+    void finishInlineRename(bool accept);
+    bool filterInlineRenameEvent(QObject *object,QEvent *event);
+    QPointer<QPlainTextEdit> m_inlineEditor;
+    QPointer<QWidget> m_inlineBox;
+    QPointer<QLabel> m_inlineError;
+    QFileInfo m_inlineFile;
+    QByteArray m_inlineIdentity;
+    QString m_selectAfterRename;
     bool claimEntry(const QString &name);
     QString configPath() const;
     void arrangeAll();

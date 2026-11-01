@@ -55,6 +55,7 @@ static bool computerIcon(DesktopScene &scene) {
 #include "monitor_check.h"
 #include "offline_shortcut_check.h"
 #include "pages_check.h"
+#include "inline_rename_check.h"
 #include "primary_monitor_check.h"
 #include "missing_app_check.h"
 #include "application_icons_check.h"
@@ -175,6 +176,7 @@ int main(int argc,char **argv) {
     if(app.arguments().contains("--carousel-preview"))return carouselPreview();
     if(app.arguments().contains("--primary-monitor-check"))return primaryMonitorCheck(false);
     if(app.arguments().contains("--primary-monitor-check-reload"))return primaryMonitorCheck(true);
+    if(app.arguments().contains("--inline-rename-check"))return inlineRenameCheck();
     if(app.arguments().contains("--pages-check"))return pagesCheck(false);
     if(app.arguments().contains("--pages-check-reload"))return pagesCheck(true);
     if(app.arguments().contains("--monitor-check"))return monitorCheck(false);
