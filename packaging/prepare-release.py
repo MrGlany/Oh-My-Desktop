@@ -49,7 +49,7 @@ if args.snapshot:
             info.uname = info.gname = ''
             info.mtime = 0
             return info
-        for entry in ('CMakeLists.txt', 'LICENSE', 'README.md', '.gitignore', 'assets', 'src', 'tests', 'packaging'):
+        for entry in ('CMakeLists.txt', 'LICENSE', 'README.md', '.gitignore', 'install.sh', 'assets', 'src', 'tests', 'packaging'):
             tar.add(ROOT / entry, arcname=f'{name}/{entry}', filter=normalized)
     template = (ROOT / 'packaging/aur/PKGBUILD.in').read_text()
 else:
