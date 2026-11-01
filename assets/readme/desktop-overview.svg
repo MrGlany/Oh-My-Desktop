@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" role="img" aria-labelledby="title description">
   <title id="title">Oh My Desktop — два экрана, одна удобная система</title>
-  <desc id="description">Иллюстрация прозрачного рабочего стола: папки на левом мониторе, ярлыки и меню на правом. Фиолетовое оформление с бирюзовыми акцентами.</desc>
+  <desc id="description">Иллюстрация прозрачного рабочего стола: папки на левом мониторе, ярлыки и меню на правом. Внизу каждого экрана отдельный переключатель трёх страниц со стрелками и домиком основной страницы. На мониторах выбраны разные страницы. Фиолетовое оформление с бирюзовыми акцентами.</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#111525"/><stop offset="1" stop-color="#19152d"/></linearGradient>
     <linearGradient id="screen" x2="1" y2="1"><stop stop-color="#222344"/><stop offset=".55" stop-color="#37305e"/><stop offset="1" stop-color="#192e43"/></linearGradient>
@@ -36,7 +36,7 @@
     <rect x="196" y="182" width="275" height="115" rx="16" fill="#191c31" opacity=".6" stroke="#9e8bdb" stroke-opacity=".25"/>
     <text x="217" y="213" fill="#e4ddfa" font-size="17" font-weight="600">На своём экране.</text>
     <text x="217" y="238" fill="#ada6c8" font-size="12">Без дубликатов значков.</text>
-    <text x="217" y="260" fill="#ada6c8" font-size="12">С сохранением расположения.</text>
+    <text x="217" y="260" fill="#ada6c8" font-size="12">Свои страницы и позиции.</text>
     <rect x="217" y="275" width="62" height="3" rx="1.5" fill="url(#accent)"/>
     <!-- Right output -->
     <rect x="620" y="102" width="542" height="276" rx="14" fill="#0e111d" stroke="#51496c"/>
@@ -53,6 +53,7 @@
     <g transform="translate(674 277)" fill="none" stroke="#c9bdf1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 8h30M11 8V2h10v6M5 9l2 30h19l2-30M12 15v17m9-17v17"/></g>
     <text x="690" y="338" fill="#e7e2f6" font-size="11" text-anchor="middle">Корзина</text>
     <!-- Illustrative theme-aware menu -->
+    <g transform="translate(0 -6)">
     <rect x="778" y="166" width="306" height="176" rx="16" fill="#191b2b" stroke="#56506c"/>
     <rect x="787" y="175" width="288" height="36" rx="9" fill="#c4b8fc"/>
     <path d="M801 188h10m-5-5v10" stroke="#332c57" stroke-width="1.8" stroke-linecap="round"/>
@@ -62,10 +63,27 @@
     <path d="M794 253h274" stroke="#343247"/>
     <text x="800" y="278" fill="#d1cadf" font-size="12">Упорядочить значки</text>
     <text x="800" y="310" fill="#d1cadf" font-size="12">Свойства рабочего стола</text>
+    </g>
+    <!-- Independent per-monitor page switchers: home marks the main page. -->
+    <g aria-label="Левый монитор: выбрана основная из трёх страниц">
+      <rect x="247" y="340" width="124" height="24" rx="12" fill="#20202c" fill-opacity=".94" stroke="#4d465f" stroke-width=".8"/>
+      <path d="m261 348-4 4 4 4m96-8 4 4-4 4" fill="none" stroke="#e0daed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="285" cy="352" r="3" fill="#9691a8"/>
+      <rect x="299" y="346" width="20" height="12" rx="6" fill="#c4b8fc"/>
+      <path d="m305 352 4-3.5 4 3.5m-7-1v4h2v-2h2v2h2v-4" fill="none" stroke="#332c57" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="333" cy="352" r="3" fill="#9691a8"/>
+    </g>
+    <g aria-label="Правый монитор: выбрана третья страница; основная отмечена домиком">
+      <rect x="829" y="340" width="124" height="24" rx="12" fill="#20202c" fill-opacity=".94" stroke="#4d465f" stroke-width=".8"/>
+      <path d="m843 348-4 4 4 4m96-8 4 4-4 4" fill="none" stroke="#e0daed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="867" cy="352" r="3" fill="#9691a8"/>
+      <path d="m887 352 4-3.5 4 3.5m-7-1v4h2v-2h2v2h2v-4" fill="none" stroke="#c4b8fc" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="905" y="346" width="20" height="12" rx="6" fill="#c4b8fc"/>
+    </g>
     <!-- Monitor feet and labels -->
     <path d="M277 379v12h-37v5h138v-5h-37v-12M859 379v12h-37v5h138v-5h-37v-12" fill="#38334f"/>
-    <text x="309" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ФАЙЛЫ И ПАПКИ</text>
-    <text x="891" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ЯРЛЫКИ И МЕНЮ</text>
+    <text x="309" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ФАЙЛЫ И СВОИ СТРАНИЦЫ</text>
+    <text x="891" y="429" text-anchor="middle" fill="#b7accf" font-size="12" letter-spacing="1">ЯРЛЫКИ, МЕНЮ И СТРАНИЦЫ</text>
     <path d="M584 238h32m-7-7 7 7-7 7m-18-14-7 7 7 7" fill="none" stroke="#bba9f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>
